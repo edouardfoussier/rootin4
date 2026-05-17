@@ -17,10 +17,10 @@ ON CONFLICT DO NOTHING;
 
 -- Teams (code, name, flag, group, fifa_rank_2025_estimate, elo_seed_estimate)
 INSERT INTO teams (code, name, flag_emoji, group_letter, fifa_rank_2025, elo_seed) VALUES
-    -- Group A
+    -- Group A (seed order = draw order from FIFA on Dec 5, 2025)
     ('MEX', 'Mexico',          '🇲🇽', 'A', 19, 1815),
-    ('KOR', 'South Korea',     '🇰🇷', 'A', 23, 1800),
     ('RSA', 'South Africa',    '🇿🇦', 'A', 56, 1640),
+    ('KOR', 'South Korea',     '🇰🇷', 'A', 23, 1800),
     ('CZE', 'Czechia',         '🇨🇿', 'A', 41, 1690),
 
     -- Group B
@@ -73,15 +73,15 @@ INSERT INTO teams (code, name, flag_emoji, group_letter, fifa_rank_2025, elo_see
 
     -- Group J
     ('ARG', 'Argentina',       '🇦🇷', 'J',  1, 2125),
-    ('AUT', 'Austria',         '🇦🇹', 'J', 22, 1780),
     ('ALG', 'Algeria',         '🇩🇿', 'J', 33, 1750),
+    ('AUT', 'Austria',         '🇦🇹', 'J', 22, 1780),
     ('JOR', 'Jordan',          '🇯🇴', 'J', 64, 1565),
 
     -- Group K
     ('POR', 'Portugal',        '🇵🇹', 'K',  7, 2020),
-    ('COL', 'Colombia',        '🇨🇴', 'K', 12, 1940),
-    ('UZB', 'Uzbekistan',      '🇺🇿', 'K', 57, 1670),
     ('COD', 'DR Congo',        '🇨🇩', 'K', 53, 1640),
+    ('UZB', 'Uzbekistan',      '🇺🇿', 'K', 57, 1670),
+    ('COL', 'Colombia',        '🇨🇴', 'K', 12, 1940),
 
     -- Group L
     ('ENG', 'England',         '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'L',  4, 1990),
@@ -90,20 +90,22 @@ INSERT INTO teams (code, name, flag_emoji, group_letter, fifa_rank_2025, elo_see
     ('GHA', 'Ghana',           '🇬🇭', 'L', 73, 1720)
 ON CONFLICT (code) DO NOTHING;
 
--- The full 104-match schedule (date, stadium, slot) lands in a follow-up
--- migration once we cross-check against fifa.com/scores-fixtures. For the
--- scaffold demo we keep one canonical match alive — Match #87, the persona
--- example from the brief.
+-- The canonical schedule lives in `src/lib/wc2026-data.ts` (single source
+-- of truth for the frontend). A follow-up migration / ingest script will
+-- mirror it into the `matches` table once F1 needs DB-backed reads.
+--
+-- For now we materialise just Match #87 — the persona example referenced
+-- across the demo and the README.
 INSERT INTO matches (
     id, round, stadium, city, host_country, kickoff_utc, slot_description
 ) VALUES (
     87,
     'Round of 32',
-    'Mercedes-Benz Stadium',
-    'Atlanta, GA',
+    'Arrowhead Stadium',
+    'Kansas City, MO',
     'USA',
-    '2026-07-04 22:00:00+00',
-    'Runner-up Group J vs Winner Group I or third-place wildcard'
+    '2026-07-03 23:00:00+00',
+    'Winner Group K vs third-place team from Group D/E/I/J/L'
 ) ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

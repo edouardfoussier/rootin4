@@ -1,20 +1,22 @@
 /**
- * Stub data — Phase 1 scaffold only.
- * Real probabilities will come from the Monte Carlo engine
- * (backend/agent_tools/monte_carlo.py) once F1 is wired up.
+ * Stub prediction layer.
  *
- * TODO(F1): replace this module with a query against the predictions
- * table; pre-warm via the `run_monte_carlo` tool on the backend.
+ * Until F1 (the Monte Carlo engine in `backend/`) lands, we hand-author one
+ * prediction per match we want to demo. Anything that touches probabilities
+ * goes through this module so the rest of the UI stays stable when the real
+ * `predictions` table starts driving it.
+ *
+ * Real schedule data (stadium, date, slot description, etc.) lives in
+ * `wc2026-data.ts` — never in this file.
  */
 
-export type TeamCode = string;
-
-export type Team = {
-  code: TeamCode;
-  name: string;
-  flag: string;
-  group: string;
-};
+import {
+  MATCHES_BY_ID,
+  TEAMS,
+  type Match,
+  type Team,
+  type TeamCode,
+} from "./wc2026-data";
 
 export type TeamProbability = {
   team: Team;
@@ -37,14 +39,8 @@ export type NewsEvent = {
   deltaPct: number;
 };
 
-export type Match = {
-  id: number;
-  round: "Group" | "Round of 32" | "Round of 16" | "Quarter-final" | "Semi-final" | "Final";
-  stadium: string;
-  city: string;
-  country: "USA" | "Canada" | "Mexico";
-  kickoffIso: string;
-  slotDescription: string;
+export type MatchPrediction = {
+  matchId: number;
   iterations: number;
   lastUpdatedIso: string;
   teamProbabilities: TeamProbability[];
@@ -52,115 +48,115 @@ export type Match = {
   news: NewsEvent[];
 };
 
-const t = (code: string, name: string, flag: string, group: string): Team => ({
-  code,
-  name,
-  flag,
-  group,
-});
+const t = (code: TeamCode) => TEAMS[code];
 
-export const STUB_TEAMS = {
-  ARG: t("ARG", "Argentina", "🇦🇷", "J"),
-  BRA: t("BRA", "Brazil", "🇧🇷", "L"),
-  ESP: t("ESP", "Spain", "🇪🇸", "H"),
-  FRA: t("FRA", "France", "🇫🇷", "K"),
-  GER: t("GER", "Germany", "🇩🇪", "I"),
-  POR: t("POR", "Portugal", "🇵🇹", "F"),
-  ENG: t("ENG", "England", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "G"),
-  NED: t("NED", "Netherlands", "🇳🇱", "C"),
-  CRO: t("CRO", "Croatia", "🇭🇷", "B"),
-  URU: t("URU", "Uruguay", "🇺🇾", "E"),
-};
+// ---------------------------------------------------------------------------
+// Match 87 — the demo persona's ticket
+// Reality: 03 Jul 2026, Arrowhead Stadium, Kansas City
+//          Winner Group K (likely Portugal) vs 3rd from D/E/I/J/L
+// Plausible wildcard pool: ARG, FRA, USA, GER, ENG
+// ---------------------------------------------------------------------------
 
-export const STUB_MATCH_87: Match = {
-  id: 87,
-  round: "Round of 32",
-  stadium: "Mercedes-Benz Stadium",
-  city: "Atlanta, GA",
-  country: "USA",
-  kickoffIso: "2026-07-04T22:00:00Z", // 18:00 EDT
-  slotDescription: "Second of Group J vs first of Group I or third-place wildcard",
+const MATCH_87_PREDICTION: MatchPrediction = {
+  matchId: 87,
   iterations: 100_000,
   lastUpdatedIso: "2026-05-17T17:30:00Z",
   teamProbabilities: [
-    { team: STUB_TEAMS.ARG, probability: 0.47 },
-    { team: STUB_TEAMS.BRA, probability: 0.31 },
-    { team: STUB_TEAMS.ESP, probability: 0.12 },
-    { team: STUB_TEAMS.FRA, probability: 0.07 },
-    { team: STUB_TEAMS.GER, probability: 0.015 },
-    { team: STUB_TEAMS.POR, probability: 0.008 },
-    { team: STUB_TEAMS.ENG, probability: 0.005 },
-    { team: STUB_TEAMS.NED, probability: 0.002 },
+    { team: t("POR"), probability: 0.61 },
+    { team: t("COL"), probability: 0.21 },
+    { team: t("COD"), probability: 0.08 },
+    { team: t("ARG"), probability: 0.04 },
+    { team: t("FRA"), probability: 0.025 },
+    { team: t("USA"), probability: 0.015 },
+    { team: t("GER"), probability: 0.01 },
+    { team: t("ENG"), probability: 0.005 },
+    { team: t("UZB"), probability: 0.005 },
   ],
   pairProbabilities: [
     {
-      teamA: STUB_TEAMS.ARG,
-      teamB: STUB_TEAMS.BRA,
-      probability: 0.142,
-      flavor: "Classic. High-drama.",
+      teamA: t("POR"),
+      teamB: t("ARG"),
+      probability: 0.046,
+      flavor: "Messi vs Ronaldo, possibly the last act.",
     },
     {
-      teamA: STUB_TEAMS.ARG,
-      teamB: STUB_TEAMS.ESP,
-      probability: 0.108,
-      flavor: "Latin pride.",
-    },
-    {
-      teamA: STUB_TEAMS.ARG,
-      teamB: STUB_TEAMS.FRA,
-      probability: 0.075,
-      flavor: "2022 final rematch.",
-    },
-    {
-      teamA: STUB_TEAMS.BRA,
-      teamB: STUB_TEAMS.ESP,
-      probability: 0.069,
-      flavor: "Samba meets tiki-taka.",
-    },
-    {
-      teamA: STUB_TEAMS.BRA,
-      teamB: STUB_TEAMS.FRA,
+      teamA: t("POR"),
+      teamB: t("FRA"),
       probability: 0.041,
-      flavor: "1998 ghosts.",
+      flavor: "Euro 2016 final reprise.",
+    },
+    {
+      teamA: t("POR"),
+      teamB: t("USA"),
+      probability: 0.028,
+      flavor: "Hosts' first taste of a giant.",
+    },
+    {
+      teamA: t("COL"),
+      teamB: t("ARG"),
+      probability: 0.022,
+      flavor: "South American derby with a Kansas accent.",
+    },
+    {
+      teamA: t("POR"),
+      teamB: t("GER"),
+      probability: 0.019,
+      flavor: "Two former champions, one wildcard.",
     },
   ],
   news: [
     {
-      id: "news-vini-2026-06-09",
-      date: "2026-06-09",
-      headline: "Vinicius injury (BRA)",
-      detail: "Brazil's path through this slot dropped from 36% to 31% (-5pt).",
-      impactTeam: "BRA",
-      deltaPct: -5,
+      id: "news-por-2026-04-11",
+      date: "2026-04-11",
+      headline: "Ronaldo suspension lifted ahead of opener",
+      detail:
+        "FIFA exempted the qualification-round ban on May 8, restoring Portugal's strongest XI. P(Portugal wins Group K) up from 58% → 64%.",
+      impactTeam: "POR",
+      deltaPct: 6,
     },
     {
-      id: "news-arg-2026-06-07",
-      date: "2026-06-07",
-      headline: "Argentina won Group J",
-      detail: "Their probability here rose from 41% to 47%.",
+      id: "news-arg-2026-05-02",
+      date: "2026-05-02",
+      headline: "Argentina lock in a friendly vs Mexico",
+      detail:
+        "Pre-tournament tune-up at Estadio Azteca raises ARG's projected Group J finish — knock-on effect on third-place wildcard pool.",
       impactTeam: "ARG",
-      deltaPct: 6,
+      deltaPct: -1.5,
+    },
+    {
+      id: "news-col-2026-05-09",
+      date: "2026-05-09",
+      headline: "Colombia roster shaken by injury",
+      detail:
+        "Two starters ruled out for the group stage. Colombia's chance of finishing 2nd in Group K nudged down from 25% → 21%.",
+      impactTeam: "COL",
+      deltaPct: -4,
     },
   ],
 };
 
-export const STUB_MATCHES: Record<number, Match> = {
-  87: STUB_MATCH_87,
+const PREDICTIONS_BY_ID: Record<number, MatchPrediction> = {
+  87: MATCH_87_PREDICTION,
 };
 
-export const formatProbability = (p: number): string =>
-  `${Math.round(p * 100)}%`;
+// ---------------------------------------------------------------------------
+// Public surface
+// ---------------------------------------------------------------------------
 
-export const formatKickoff = (iso: string, tz = "America/New_York"): string => {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-    timeZone: tz,
-  }).format(d);
-};
+export function getPrediction(matchId: number): MatchPrediction | null {
+  return PREDICTIONS_BY_ID[matchId] ?? null;
+}
+
+export function getMatch(matchId: number): Match | null {
+  return MATCHES_BY_ID[matchId] ?? null;
+}
+
+export const DEMO_MATCH_ID = 87;
+
+// ---------------------------------------------------------------------------
+// Formatters retained at the call sites for back-compat
+// ---------------------------------------------------------------------------
+
+export function formatProbability(p: number): string {
+  return `${Math.round(p * 100)}%`;
+}

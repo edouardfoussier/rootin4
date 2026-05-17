@@ -1,0 +1,58 @@
+# Gitleaks config for Rootin4
+# Extends the built-in defaults and adds rules for the providers this
+# project actually talks to (Phoenix, Google Gemini / Cloud, Postgres).
+
+title = "rootin4 gitleaks config"
+
+# Inherit gitleaks' default ruleset, then layer ours on top.
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Phoenix (Arize) API keys — format observed: `ak-<uuid>-<random>`
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "arize-phoenix-api-key"
+description = "Arize Phoenix API key"
+regex = '''ak-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[A-Za-z0-9_]{16,}'''
+keywords = ["ak-", "phoenix", "arize"]
+tags = ["phoenix", "arize", "key"]
+
+# ---------------------------------------------------------------------------
+# Google API keys (AI Studio / Gemini / Cloud) — format: AIza + 35 chars
+# Gitleaks ships with this rule by default; we keep an explicit copy so the
+# project stays self-documenting even if gitleaks defaults move around.
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "google-api-key-explicit"
+description = "Google API key (AIza...)"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+keywords = ["AIza"]
+tags = ["google", "key"]
+
+# ---------------------------------------------------------------------------
+# Postgres connection strings with embedded passwords
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "postgres-url-with-password"
+description = "Postgres URL with embedded credentials"
+regex = '''postgres(ql)?:\/\/[A-Za-z0-9_\-]+:[^@\s"]{6,}@[^\s"]+'''
+keywords = ["postgres://", "postgresql://"]
+tags = ["database", "postgres"]
+
+# ---------------------------------------------------------------------------
+# Allowlist — paths and patterns we know are safe.
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Documentation / config templates that should never trip a rule"
+paths = [
+  '''^backend\/\.env\.example$''',
+  '''^\.env\.example$''',
+  '''^README\.md$''',
+  '''^.*\/README\.md$''',
+  '''^\.gitleaks\.toml$''',
+]
+# Avoid false positives on the literal Postgres dev-default we ship in docs.
+regexes = [
+  '''postgres:\/\/postgres:postgres@localhost''',
+]
