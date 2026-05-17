@@ -1,0 +1,60 @@
+[project]
+name = "rootin4-agent"
+version = "0.1.0"
+description = "Rootin4 — World Cup 2026 ticket-intelligence agent. Built on Google ADK + Gemini, instrumented with Arize Phoenix via OpenInference."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+authors = [
+    { name = "Édouard Foussier" },
+]
+license = { text = "MIT" }
+dependencies = [
+    # Google Agent Development Kit (code-owned runtime, required by the Arize track)
+    "google-adk>=0.4.0",
+    # Gemini SDK
+    "google-genai>=1.0.0",
+    # OTEL exporter to Phoenix Cloud / self-hosted Phoenix
+    "arize-phoenix-otel>=0.6.0",
+    # OpenInference auto-instrumentors (cover Gemini and ADK call surfaces)
+    "openinference-instrumentation-google-genai>=0.1.0",
+    "openinference-instrumentation-google-adk>=0.1.0",
+    # HTTP entrypoint for Cloud Run
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    # Config + utilities
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    # Monte Carlo + math (lean stack on purpose)
+    "numpy>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+rootin4 = "rootin4_agent.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rootin4_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
