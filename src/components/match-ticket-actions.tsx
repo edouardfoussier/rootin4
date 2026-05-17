@@ -15,10 +15,10 @@ export function MatchTicketActions({ matchId }: Props) {
   const hasOther = ticket && ticket.matchId !== matchId;
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-3">
+    <div className="mt-1 flex flex-wrap items-center gap-3">
       {isMine ? (
         <>
-          <span className="inline-flex items-center gap-2 rounded-full bg-rust/15 px-3 py-1.5 text-sm text-rust">
+          <span className="inline-flex items-center gap-2 rounded-full border border-horizon/40 bg-horizon/15 px-3 py-1.5 text-sm text-horizon">
             <Check className="h-4 w-4" /> This match is on your ticket
           </span>
           <Button
@@ -26,7 +26,7 @@ export function MatchTicketActions({ matchId }: Props) {
             variant="ghost"
             size="sm"
             onClick={clearTicket}
-            className="text-muted-foreground hover:text-rust"
+            className="text-ink-soft hover:text-horizon"
           >
             <X className="mr-1 h-4 w-4" /> Forget my ticket
           </Button>
@@ -38,12 +38,12 @@ export function MatchTicketActions({ matchId }: Props) {
             variant="default"
             size="sm"
             onClick={() => setTicket(matchId)}
-            className="bg-foreground text-background hover:bg-rust"
+            className="bg-twilight text-paper hover:bg-horizon hover:text-ink"
           >
             <Ticket className="mr-1 h-4 w-4" /> I have a ticket for this match
           </Button>
           {hasOther && (
-            <span className="label-mono text-muted-foreground">
+            <span className="label-mono text-ink-soft">
               (replaces your saved Match #{ticket!.matchId})
             </span>
           )}

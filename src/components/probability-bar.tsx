@@ -1,40 +1,80 @@
 import { cn } from "@/lib/utils";
 
+type Tone = "twilight" | "horizon" | "ink" | "muted";
+
 type Props = {
   label: string;
   prefix?: string;
   probability: number;
-  highlight?: boolean;
+  tone?: Tone;
+  /** Optional support copy (qualification path, group, etc.). */
+  sub?: string;
+  /** Stagger delay in ms applied to the keyframe; staggers a list of bars. */
+  delayMs?: number;
+  /** Compact heights. `default` ≈ 72px, `sm` ≈ 48px, `xs` ≈ 36px. */
+  size?: "default" | "sm" | "xs";
   className?: string;
+};
+
+const TONE_CLASS: Record<Tone, string> = {
+  twilight: "prob-fill--twilight",
+  horizon: "prob-fill--horizon",
+  ink: "prob-fill--ink",
+  muted: "prob-fill--muted",
 };
 
 export function ProbabilityBar({
   label,
   prefix,
   probability,
-  highlight,
+  tone = "twilight",
+  sub,
+  delayMs = 0,
+  size = "default",
   className,
 }: Props) {
-  const pct = Math.round(probability * 100);
+  const pct = Math.max(0, Math.min(100, +(probability * 100).toFixed(1)));
+  const heightClass =
+    size === "xs" ? "prob-track--xs" : size === "sm" ? "prob-track--sm" : "";
+
   return (
-    <div className={cn("group/bar grid grid-cols-[1.6rem_minmax(7rem,11rem)_1fr_3rem] items-center gap-3", className)}>
-      <span className="text-lg leading-none" aria-hidden>
-        {prefix ?? "•"}
-      </span>
-      <span className="font-display text-base text-foreground tracking-tight">
-        {label}
-      </span>
-      <div className="relative h-2.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            "absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out",
-            highlight ? "bg-rust" : "bg-foreground/75"
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-baseline gap-2.5 min-w-0">
+          {prefix && (
+            <span className="text-xl leading-none" aria-hidden>
+              {prefix}
+            </span>
           )}
-          style={{ width: `${Math.max(2, pct)}%` }}
+          <span className="font-display text-2xl font-bold text-ink sm:text-3xl">
+            {label}
+          </span>
+        </div>
+        <span className="font-mono text-lg font-medium tabular-nums text-ink sm:text-xl">
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+
+      <div className={cn("prob-track", heightClass)} aria-hidden>
+        <div
+          className={cn("prob-fill", TONE_CLASS[tone])}
+          style={
+            {
+              "--bar-w": `${pct}%`,
+              "--bar-delay": `${delayMs}ms`,
+            } as React.CSSProperties
+          }
         />
       </div>
-      <span className="label-mono text-right tabular-nums text-foreground">
-        {pct}%
+
+      {sub && (
+        <p className="label-mono text-ink-soft">{sub}</p>
+      )}
+
+      {/* Screen-reader text for accessibility — color/length is decorative. */}
+      <span className="sr-only">
+        {label}: {pct.toFixed(1)} percent probability.
+        {sub && ` ${sub}`}
       </span>
     </div>
   );

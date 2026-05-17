@@ -1,31 +1,43 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Geist_Mono, Instrument_Serif } from "next/font/google";
+import {
+  Inter,
+  JetBrains_Mono,
+  Playfair_Display,
+} from "next/font/google";
+
+import { AgentTicker } from "@/components/agent-ticker";
+import { AtmosphericField } from "@/components/atmospheric-field";
+
 import "./globals.css";
 
-const bricolage = Bricolage_Grotesque({
-  variable: "--font-bricolage",
+// Playfair Display is *only ever italic* on this site — the rule that ties
+// every editorial moment together. 700 + 900 cover bold and ultra-bold.
+const playfair = Playfair_Display({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["700", "900"],
+  style: ["italic"],
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Rootin4 — Know who's really playing at your seat",
   description:
-    "Every other World Cup tool predicts who wins. Rootin4 predicts who shows up at the seat you already bought.",
+    "A weather forecast for the seat you bought. Calibrated probabilities for every fixture of the 2026 FIFA World Cup, plus an agent that grades and corrects itself.",
 };
 
 export default function RootLayout({
@@ -36,10 +48,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bricolage.variable} ${instrumentSerif.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${playfair.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+      <body className="bg-ambient relative min-h-full font-sans text-ink">
+        <AtmosphericField />
+        <div className="relative z-10 flex min-h-full flex-col pb-24">
+          {children}
+        </div>
+        <AgentTicker />
       </body>
     </html>
   );

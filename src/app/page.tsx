@@ -4,132 +4,87 @@ import { HomeTicketHero } from "@/components/home-ticket-hero";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
+import { getPrediction } from "@/lib/stub-data";
 import {
   HOST_LABEL,
   MATCHES,
-  STADIUMS,
   formatShortDate,
   getMatchTeams,
   getStadium,
 } from "@/lib/wc2026-data";
 
+/** Three fixtures across host countries to anchor the home page. */
+const TEASER_IDS = [87, 1, 73] as const;
+
 export default function Home() {
-  const openerMatch = MATCHES.find((m) => m.date === "2026-06-11");
-  const earlyMatches = MATCHES.slice(0, 6);
+  const teasers = TEASER_IDS.map((id) => MATCHES.find((m) => m.id === id)).filter(
+    Boolean
+  ) as (typeof MATCHES)[number][];
 
   return (
     <>
       <SiteHeader />
       <main className="flex-1">
-        <section className="mx-auto w-full max-w-4xl px-6 pt-20 pb-10">
-          <span className="label-mono text-rust">
-            World Cup 2026 · USA · Canada · Mexico
+        {/* Editorial hero */}
+        <section className="mx-auto w-full max-w-5xl px-6 pt-16 pb-12 sm:pt-24">
+          <span className="label-mono text-twilight">
+            World Cup 2026 · USA · Canada · Mexico · June 11 – July 19
           </span>
-          <h1 className="mt-4 font-display text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
-            Every World Cup tool predicts{" "}
-            <span className="font-serif-accent text-rust">who wins.</span>
-            <br />
-            <span className="text-foreground/80">Rootin</span>
-            <span className="font-serif-accent text-rust">4</span>
-            <span className="text-foreground/80"> predicts </span>
-            <span className="font-serif-accent text-foreground">
-              who shows up at the seat you already bought.
-            </span>
+          <h1 className="mt-5 font-display text-[clamp(2.5rem,9vw,6rem)] font-black leading-[0.92] tracking-tight text-ink">
+            Who actually shows up at your seat?
           </h1>
 
-          <p className="mt-6 max-w-2xl font-display text-lg text-muted-foreground">
-            104 fixtures. 48 teams. 16 stadiums across 3 host countries.
-            One question Marco can&apos;t answer alone:{" "}
-            <em className="font-serif-accent text-foreground">
-              who&apos;s playing in his seat?
-            </em>{" "}
-            We ran 100,000 simulations and asked the news. Here&apos;s our best
-            guess.
+          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-soft sm:text-xl">
+            Every other World Cup product predicts who wins. Rootin4 predicts
+            who actually walks onto the pitch in front of the seat you already
+            bought.{" "}
+            <span className="font-display italic text-ink">
+              48 teams. 16 stadiums. 104 fixtures. One riddle.
+            </span>
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
               href="/schedule"
-              className="inline-flex items-center rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition hover:bg-rust"
+              className="inline-flex items-center rounded-full bg-twilight px-6 py-3 text-sm font-medium text-paper shadow-md transition hover:opacity-90"
             >
-              Find your match →
+              Find my fixture →
             </Link>
             <Link
               href="/match/87"
-              className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition hover:border-rust hover:text-rust"
+              className="inline-flex items-center rounded-full border border-ink-line bg-paper/60 px-6 py-3 text-sm font-medium text-ink backdrop-blur transition hover:border-horizon hover:text-horizon"
             >
               See Match #87 in action
             </Link>
             <Link
-              href="/agent"
-              className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition hover:border-rust hover:text-rust"
+              href="/about"
+              className="inline-flex items-center rounded-full border border-ink-line bg-paper/60 px-6 py-3 text-sm font-medium text-ink backdrop-blur transition hover:border-twilight hover:text-twilight"
             >
-              How the agent learns
+              How Rootin4 thinks
             </Link>
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-4xl px-6 pb-12">
+        {/* Saved ticket (or empty-state CTA) */}
+        <section className="mx-auto w-full max-w-5xl px-6 pb-12">
           <HomeTicketHero />
         </section>
 
-        <section className="mx-auto w-full max-w-4xl px-6 pb-12">
-          <header className="flex items-baseline justify-between">
-            <h2 className="font-display text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Tournament opener
-            </h2>
+        {/* Teaser fixtures */}
+        <section className="mx-auto w-full max-w-5xl px-6 pb-16">
+          <header className="flex items-baseline justify-between border-b border-ink-line pb-3">
+            <h2 className="label-mono text-ink-soft">Teaser fixtures</h2>
             <Link
               href="/schedule"
-              className="label-mono text-muted-foreground transition hover:text-rust"
+              className="label-mono text-ink-soft transition hover:text-horizon"
             >
               See all 104 →
             </Link>
           </header>
-          {openerMatch ? <OpenerCard matchId={openerMatch.id} /> : null}
-        </section>
-
-        <section className="mx-auto w-full max-w-4xl px-6 pb-16">
-          <header className="flex items-baseline justify-between">
-            <h2 className="font-display text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              First days
-            </h2>
-            <span className="label-mono text-muted-foreground">
-              June 11 – June 14
-            </span>
-          </header>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {earlyMatches.map((match) => {
-              const { a, b } = getMatchTeams(match);
-              const stadium = getStadium(match);
-              return (
-                <Link
-                  key={match.id}
-                  href={`/match/${match.id}`}
-                  className="rounded-lg border border-border/70 bg-card p-4 transition hover:border-rust"
-                >
-                  <p className="label-mono text-muted-foreground">
-                    Match #{match.id} · {formatShortDate(match.date)}
-                  </p>
-                  <p className="mt-2 font-display text-lg font-medium">
-                    {a.team && b.team ? (
-                      <>
-                        {a.team.flag} {a.team.name}{" "}
-                        <span className="font-serif-accent text-rust">vs</span>{" "}
-                        {b.team.flag} {b.team.name}
-                      </>
-                    ) : (
-                      <>
-                        {a.slot} vs {b.slot}
-                      </>
-                    )}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {stadium.name} · {stadium.city} ·{" "}
-                    {HOST_LABEL[match.hostCountry]}
-                  </p>
-                </Link>
-              );
-            })}
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {teasers.map((match) => (
+              <TeaserCard key={match.id} matchId={match.id} />
+            ))}
           </div>
         </section>
       </main>
@@ -138,44 +93,52 @@ export default function Home() {
   );
 }
 
-function OpenerCard({ matchId }: { matchId: number }) {
-  const match = MATCHES.find((m) => m.id === matchId)!;
-  const { a, b } = getMatchTeams(match);
+function TeaserCard({ matchId }: { matchId: number }) {
+  const match = MATCHES.find((m) => m.id === matchId);
+  if (!match) return null;
   const stadium = getStadium(match);
+  const { a, b } = getMatchTeams(match);
+  const prediction = getPrediction(matchId);
+  const leader = prediction?.teamProbabilities[0];
+
   return (
-    <Card className="mt-4 border-border/80 bg-card">
-      <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="label-mono text-muted-foreground">
-            Match #{match.id} · {formatShortDate(match.date)}
-          </span>
-          <p className="font-display text-2xl font-semibold tracking-tight">
+    <Link
+      href={`/match/${match.id}`}
+      className="group rounded-2xl border border-ink-line/70 bg-paper/50 p-5 backdrop-blur transition hover:border-twilight"
+    >
+      <Card className="border-0 bg-transparent p-0 shadow-none">
+        <CardContent className="flex flex-col gap-3 p-0">
+          <div className="flex items-baseline justify-between">
+            <span className="label-mono text-ink-soft">
+              Match #{match.id}
+            </span>
+            <span className="label-mono text-ink-soft">
+              {HOST_LABEL[match.hostCountry]}
+            </span>
+          </div>
+          <p className="font-display text-2xl font-bold leading-tight text-ink">
             {a.team && b.team
               ? `${a.team.name} vs ${b.team.name}`
               : `${a.slot} vs ${b.slot}`}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {stadium.name}
-            <span className="font-serif-accent ml-2 text-rust">
-              · {stadium.city}
-            </span>{" "}
-            · capacity {stadium.capacity.toLocaleString()}
+          <p className="text-sm text-ink-soft">
+            {stadium.name} · {stadium.city}
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {a.team && (
-            <span className="text-4xl" aria-hidden>
-              {a.team.flag}
-            </span>
+          <p className="label-mono text-ink-soft">
+            {formatShortDate(match.date)}
+          </p>
+          {leader && (
+            <p className="mt-2 inline-flex items-baseline gap-2 self-start rounded-full bg-twilight/10 px-3 py-1 text-twilight">
+              <span className="font-mono text-xs tabular-nums">
+                {Math.round(leader.probability * 100)}%
+              </span>
+              <span className="font-display text-xs italic">
+                {leader.team.name}
+              </span>
+            </p>
           )}
-          <span className="font-serif-accent text-3xl text-rust">vs</span>
-          {b.team && (
-            <span className="text-4xl" aria-hidden>
-              {b.team.flag}
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

@@ -3,7 +3,6 @@
 import { Ticket } from "lucide-react";
 import Link from "next/link";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { useMyTicket } from "@/lib/use-my-ticket";
 import {
   MATCHES_BY_ID,
@@ -18,28 +17,28 @@ export function HomeTicketHero() {
 
   if (!ticket) {
     return (
-      <Card className="border-dashed border-rust/40 bg-card">
-        <CardContent className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
+      <article className="glass-panel rounded-2xl border-dashed">
+        <div className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <Ticket className="mt-0.5 h-5 w-5 text-rust" />
+            <Ticket className="mt-0.5 h-5 w-5 text-horizon" />
             <div className="flex flex-col gap-1">
-              <p className="font-display text-lg font-medium">
+              <p className="font-display text-xl italic text-ink">
                 You haven&apos;t marked your ticket yet.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Find the match you bought a seat for, mark it, and Rootin4 will
-                pin the prediction to every page you visit.
+              <p className="text-sm text-ink-soft">
+                Find the fixture you bought a seat for, mark it, and Rootin4
+                pins the prediction to every page you visit.
               </p>
             </div>
           </div>
           <Link
             href="/schedule"
-            className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background transition hover:bg-rust"
+            className="inline-flex items-center justify-center self-start rounded-full bg-twilight px-5 py-2 text-sm font-medium text-paper transition hover:opacity-90 sm:self-auto"
           >
             Find my match →
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </article>
     );
   }
 
@@ -49,50 +48,50 @@ export function HomeTicketHero() {
   const { a, b } = getMatchTeams(match);
 
   return (
-    <Card className="border-rust/60 bg-card ring-2 ring-rust/30">
-      <CardContent className="flex flex-col gap-2 py-6">
+    <article className="glass-panel rounded-2xl border-horizon/40">
+      <div className="flex flex-col gap-3 px-6 py-5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="label-mono text-rust">
+          <span className="label-mono text-horizon">
             Your ticket · Match #{match.id}
           </span>
-          <span className="label-mono text-muted-foreground">
+          <span className="label-mono text-ink-soft">
             {ROUND_LABEL[match.round]}
           </span>
         </div>
-        <p className="font-display text-2xl font-semibold tracking-tight">
+        <p className="font-display text-3xl font-bold leading-tight text-ink sm:text-4xl">
           {a.team && b.team ? (
             <>
               {a.team.flag} {a.team.name}{" "}
-              <span className="font-serif-accent text-rust">vs</span>{" "}
+              <span className="italic text-horizon">vs</span>{" "}
               {b.team.flag} {b.team.name}
             </>
           ) : (
             <>
               {a.slot}{" "}
-              <span className="font-serif-accent text-rust">vs</span>{" "}
+              <span className="italic text-horizon">vs</span>{" "}
               {b.slot}
             </>
           )}
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-ink-soft">
           {stadium.name} · {stadium.city} · {formatShortDate(match.date)} at{" "}
           {match.kickoffLocal} local
         </p>
-        <div className="mt-2 flex gap-3">
+        <div className="mt-2 flex flex-wrap gap-3">
           <Link
             href={`/match/${match.id}`}
-            className="inline-flex items-center rounded-full bg-rust px-4 py-2 text-sm font-medium text-rust-foreground transition hover:opacity-90"
+            className="inline-flex items-center rounded-full bg-twilight px-4 py-2 text-sm font-medium text-paper transition hover:opacity-90"
           >
             Open the prediction →
           </Link>
           <Link
             href="/schedule"
-            className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition hover:border-rust hover:text-rust"
+            className="inline-flex items-center rounded-full border border-ink-line bg-paper/60 px-4 py-2 text-sm font-medium text-ink transition hover:border-horizon hover:text-horizon"
           >
             Browse the schedule
           </Link>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }
