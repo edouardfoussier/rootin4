@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     import numpy as np
+
     from .group_stage import GroupStageOutcome
     from .knockout import KnockoutOutcome
     from .state import TournamentState
@@ -19,13 +20,18 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @dataclass(slots=True)
 class TournamentSimResult:
-    group_stage: "GroupStageOutcome"
-    knockout: "KnockoutOutcome"
+    group_stage: GroupStageOutcome
+    knockout: KnockoutOutcome
 
 
 def simulate_one(
-    state: "TournamentState",
-    rng: "np.random.Generator",
+    state: TournamentState,
+    rng: np.random.Generator,
 ) -> TournamentSimResult:
     """Run group stage → knockout once. Pure function over the RNG."""
-    raise NotImplementedError("Implement in W2.")
+    from .group_stage import simulate_group_stage
+    from .knockout import play_knockout
+
+    group_stage = simulate_group_stage(state, rng)
+    knockout = play_knockout(state, group_stage, rng)
+    return TournamentSimResult(group_stage=group_stage, knockout=knockout)

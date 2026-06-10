@@ -72,7 +72,10 @@ def sample_score_distribution(
         np.column_stack([goals_a, goals_b]), axis=0, return_counts=True
     )
     total = counts.sum()
-    return {(int(p[0]), int(p[1])): int(c) / total for p, c in zip(pairs, counts)}
+    return {
+        (int(p[0]), int(p[1])): int(c) / total
+        for p, c in zip(pairs, counts, strict=True)
+    }
 
 
 def modal_score(distribution: dict[tuple[int, int], float]) -> tuple[int, int]:

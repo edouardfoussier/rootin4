@@ -46,7 +46,7 @@ class DataCampPrediction:
 
 
 def build_predictions(
-    aggregate: "TournamentAggregate",
+    aggregate: TournamentAggregate,
 ) -> list[DataCampPrediction]:
     """One `DataCampPrediction` per fixture in our schedule.
 

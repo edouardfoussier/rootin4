@@ -26,6 +26,7 @@ class Team:
     group: GroupLetter
     seed: int           # 1..4 within the group, drives FIFA rotation
     elo_seed: float     # pre-tournament prior
+    flag: str = ""      # emoji, mirrors the frontend dataset
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +64,7 @@ class TournamentState:
 
 
 def load_default_state() -> TournamentState:
-    """Build the state from `wc2026-data.ts` mirror + db/seed.sql.
+    """Build the state from the `wc2026-data.ts` mirror (data.json)."""
+    from .data import load_state
 
-    TODO(W2): for the scaffold we hand-author this in
-    `tournament/data.py`; later we may ingest from Postgres directly so
-    the frontend and backend share a single source of truth.
-    """
-    raise NotImplementedError(
-        "Wire to wc2026-data mirror in tournament/data.py during W2."
-    )
+    return load_state()
