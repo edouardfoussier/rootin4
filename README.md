@@ -67,7 +67,8 @@ corrections (`update_priors`) that shift every probability on the site.
 │                                                        │
 │  Tools exposed to the agent:                           │
 │   run_monte_carlo · match_team_probabilities ·         │
-│   team_match_probabilities · update_priors ·           │
+│   team_match_probabilities · list_match_results ·      │
+│   update_priors ·                                      │
 │   phoenix_calibration_report (token-safe trace audit)  │
 │   + Phoenix MCP toolset (projects·datasets·experiments)│
 └─────────┬──────────────────────┬───────────────────────┘
@@ -85,6 +86,20 @@ The 48 teams, 16 stadiums and 104 matches (December 5, 2025 draw, real
 FIFA match numbers and knockout slot descriptors) live in one dataset,
 `src/lib/wc2026-data.ts`, mirrored to the backend as `data.json` — the
 TS UI and the Python sim can never disagree about a structural fact.
+
+### Live recalibration on real results
+
+Once the tournament starts, the operator records each final score
+(`backend/scripts/record-result.sh`, token-protected `POST
+/api/admin/results`). A recorded result conditions every simulation two
+ways: the played match is locked to its actual score, and both teams'
+Elo ratings get the standard K-factor update before the remaining
+fixtures are sampled. Each real event (baseline, result, agent
+self-correction) appends a probability snapshot to a GCS-backed history
+(`GET /api/history/champions`, `GET /api/history/match/{id}`) — the
+Polymarket-style sparklines on every match page read straight from it.
+The agent sees the same reality through its `list_match_results` tool;
+it never invents scores and cannot write them.
 
 ## Repo layout
 

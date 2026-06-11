@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MatchTicketActions } from "@/components/match-ticket-actions";
+import { ProbSparkline } from "@/components/prob-sparkline";
 import { ProbabilityBar } from "@/components/probability-bar";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -9,19 +10,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { VerdictCard, deriveVerdict } from "@/components/verdict-card";
-import { getLivePrediction } from "@/lib/live-data";
+import { getLivePrediction, getMatchHistory } from "@/lib/live-data";
 import {
   formatProbability,
   getMatch,
+  historySeries,
+  type MatchHistory,
   type MatchPrediction,
+  type RecordedResult,
   type TeamProbability,
 } from "@/lib/predictions";
 import {
   HOST_LABEL,
   ROUND_LABEL,
+  TEAMS,
   formatShortDate,
   getMatchTeams,
   getStadium,
+  type TeamCode,
 } from "@/lib/wc2026-data";
 
 type Params = { id: string };
@@ -40,7 +46,10 @@ export default async function MatchPage({
   const match = getMatch(matchId);
   if (!match) notFound();
 
-  const prediction = await getLivePrediction(matchId);
+  const [prediction, history] = await Promise.all([
+    getLivePrediction(matchId),
+    getMatchHistory(matchId),
+  ]);
   const stadium = getStadium(match);
   const { a, b } = getMatchTeams(match);
 
@@ -112,11 +121,12 @@ export default async function MatchPage({
             match.round === "group" ? (
               <GroupMatchSections
                 prediction={prediction}
+                history={history}
                 homeName={a.team?.name ?? "Home side"}
                 awayName={b.team?.name ?? "Away side"}
               />
             ) : (
-              <PredictionSections prediction={prediction} />
+              <PredictionSections prediction={prediction} history={history} />
             )
           ) : (
             <PredictionComingSoon />
@@ -145,6 +155,37 @@ export default async function MatchPage({
   );
 }
 
+/** "FULL-TIME" banner once the operator records the real score. */
+function FullTimeBanner({ result }: { result: RecordedResult }) {
+  const teamA = TEAMS[result.teamA as TeamCode];
+  const teamB = TEAMS[result.teamB as TeamCode];
+  return (
+    <article className="glass-panel rounded-3xl border-l-4 border-l-horizon p-7 sm:p-8">
+      <span className="label-mono flex items-center gap-2 text-horizon">
+        <span className="inline-block h-2 w-2 rounded-full bg-horizon" aria-hidden />
+        Full-time · official result
+      </span>
+      <p className="mt-3 font-display text-3xl font-bold leading-tight text-ink sm:text-4xl">
+        <span aria-hidden>{teamA?.flag}</span> {teamA?.name ?? result.teamA}{" "}
+        <span className="font-mono tabular-nums">{result.scoreLine}</span>{" "}
+        <span aria-hidden>{teamB?.flag}</span> {teamB?.name ?? result.teamB}
+        {result.goalsA === result.goalsB && result.winner && (
+          <span className="text-ink-soft">
+            {" "}
+            · {TEAMS[result.winner as TeamCode]?.name ?? result.winner} on pens
+          </span>
+        )}
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+        Recorded {formatShortDate(result.recordedAt.slice(0, 10))}. This score
+        is now locked into all simulations, and both teams&apos; Elo ratings
+        have been updated from it — every probability on this site already
+        prices it in.
+      </p>
+    </article>
+  );
+}
+
 /**
  * Group fixtures: the participants are locked by the schedule, so the
  * interesting questions are the result and the scoreline — not "who
@@ -152,14 +193,17 @@ export default async function MatchPage({
  */
 function GroupMatchSections({
   prediction,
+  history,
   homeName,
   awayName,
 }: {
   prediction: MatchPrediction;
+  history: MatchHistory | null;
   homeName: string;
   awayName: string;
 }) {
   const outcome = prediction.outcomeProbabilities;
+  const played = prediction.result ?? null;
   const favourite =
     outcome && outcome.home !== outcome.away
       ? outcome.home > outcome.away
@@ -167,12 +211,23 @@ function GroupMatchSections({
         : awayName
       : null;
 
+  const spark = (key: "home" | "draw" | "away", label: string) => (
+    <ProbSparkline values={historySeries(history, key)} label={label} />
+  );
+
   return (
     <>
+      {played && (
+        <>
+          <FullTimeBanner result={played} />
+          <Separator className="my-12 bg-ink-line" />
+        </>
+      )}
+
       <section className="flex flex-col gap-6">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl font-bold text-ink sm:text-4xl">
-            How this match plays out
+            {played ? "How the forecast saw it" : "How this match plays out"}
           </h2>
           <span className="label-mono text-ink-soft">
             {prediction.iterations.toLocaleString()} sims ·{" "}
@@ -181,8 +236,9 @@ function GroupMatchSections({
         </header>
 
         <p className="max-w-prose text-sm leading-relaxed text-ink-soft">
-          The matchup is locked — both teams are guaranteed on this pitch.
-          What the simulations price is the result.
+          {played
+            ? "Each line traces the forecast at every real event — opening price, recorded results, agent self-corrections — up to the final whistle."
+            : "The matchup is locked — both teams are guaranteed on this pitch. What the simulations price is the result, and each line traces how that price has moved."}
         </p>
 
         {outcome && (
@@ -193,6 +249,7 @@ function GroupMatchSections({
               probability={outcome.home}
               tone="twilight"
               delayMs={0}
+              accessory={spark("home", `${homeName} win odds over time`)}
             />
             <ProbabilityBar
               prefix="🤝"
@@ -200,6 +257,7 @@ function GroupMatchSections({
               probability={outcome.draw}
               tone="muted"
               delayMs={90}
+              accessory={spark("draw", "Draw odds over time")}
             />
             <ProbabilityBar
               prefix="✈️"
@@ -207,12 +265,13 @@ function GroupMatchSections({
               probability={outcome.away}
               tone="horizon"
               delayMs={180}
+              accessory={spark("away", `${awayName} win odds over time`)}
             />
           </div>
         )}
       </section>
 
-      {prediction.mostLikelyScores && (
+      {prediction.mostLikelyScores && !played && (
         <>
           <Separator className="my-12 bg-ink-line" />
           <ScorelineSection
@@ -223,27 +282,33 @@ function GroupMatchSections({
         </>
       )}
 
-      <Separator className="my-12 bg-ink-line" />
+      {!played && (
+        <>
+          <Separator className="my-12 bg-ink-line" />
 
-      <VerdictCard
-        title={
-          favourite ? `${favourite} are the favourites.` : "Too close to call."
-        }
-        // The matchup is locked — the seat decision isn't in question,
-        // only the result is. Always "book".
-        verdict="book"
-        body={`Both teams are guaranteed on this pitch. Across ${prediction.iterations.toLocaleString()} simulated tournaments, this match ends ${formatProbability(
-          outcome?.home ?? 0
-        )} ${homeName} / ${formatProbability(outcome?.draw ?? 0)} draw / ${formatProbability(
-          outcome?.away ?? 0
-        )} ${awayName}.`}
-        confidence={Math.max(outcome?.home ?? 0, outcome?.away ?? 0)}
-        accessory={
-          <span className="label-mono rounded-full border border-ink-line bg-paper/40 px-2 py-1 text-twilight">
-            Trace · Phoenix MCP
-          </span>
-        }
-      />
+          <VerdictCard
+            title={
+              favourite
+                ? `${favourite} are the favourites.`
+                : "Too close to call."
+            }
+            // The matchup is locked — the seat decision isn't in question,
+            // only the result is. Always "book".
+            verdict="book"
+            body={`Both teams are guaranteed on this pitch. Across ${prediction.iterations.toLocaleString()} simulated tournaments, this match ends ${formatProbability(
+              outcome?.home ?? 0
+            )} ${homeName} / ${formatProbability(outcome?.draw ?? 0)} draw / ${formatProbability(
+              outcome?.away ?? 0
+            )} ${awayName}.`}
+            confidence={Math.max(outcome?.home ?? 0, outcome?.away ?? 0)}
+            accessory={
+              <span className="label-mono rounded-full border border-ink-line bg-paper/40 px-2 py-1 text-twilight">
+                Trace · Phoenix MCP
+              </span>
+            }
+          />
+        </>
+      )}
     </>
   );
 }
@@ -288,20 +353,41 @@ function ScorelineSection({
   );
 }
 
-function PredictionSections({ prediction }: { prediction: MatchPrediction }) {
+function PredictionSections({
+  prediction,
+  history,
+}: {
+  prediction: MatchPrediction;
+  history: MatchHistory | null;
+}) {
   const ranked: TeamProbability[] = prediction.teamProbabilities.slice();
   const top = ranked.slice(0, 4);
   const tail = ranked.slice(4);
   const tailSum = tail.reduce((acc, t) => acc + t.probability, 0);
   const leader = ranked[0];
+  const played = prediction.result ?? null;
+
+  const spark = (code: string, name: string) => (
+    <ProbSparkline
+      values={historySeries(history, code)}
+      label={`${name} appearance odds over time`}
+    />
+  );
 
   return (
     <>
+      {played && (
+        <>
+          <FullTimeBanner result={played} />
+          <Separator className="my-12 bg-ink-line" />
+        </>
+      )}
+
       {/* Probability ladder */}
       <section className="flex flex-col gap-6">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl font-bold text-ink sm:text-4xl">
-            Who will play here
+            {played ? "Who the forecast expected here" : "Who will play here"}
           </h2>
           <span className="label-mono text-ink-soft">
             {prediction.iterations.toLocaleString()} sims ·{" "}
@@ -319,17 +405,46 @@ function PredictionSections({ prediction }: { prediction: MatchPrediction }) {
               tone={TONE_BY_RANK[idx] ?? "ink"}
               delayMs={idx * 90}
               sub={`Group ${row.team.group}`}
+              accessory={spark(row.team.code, row.team.name)}
             />
           ))}
           {tail.length > 0 && (
-            <ProbabilityBar
-              prefix="·"
-              label={`${tail.length} other teams`}
-              probability={tailSum}
-              tone="muted"
-              size="sm"
-              delayMs={top.length * 90}
-            />
+            <details className="group">
+              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <ProbabilityBar
+                  prefix="·"
+                  label={`${tail.length} other teams`}
+                  probability={tailSum}
+                  tone="muted"
+                  size="sm"
+                  delayMs={top.length * 90}
+                  sub="The rest of the field — click to expand"
+                  accessory={
+                    <span
+                      className="inline-block text-ink-soft transition-transform duration-200 group-open:rotate-180"
+                      aria-hidden
+                    >
+                      ⌄
+                    </span>
+                  }
+                />
+              </summary>
+              <div className="mt-4 flex flex-col gap-4 border-l-2 border-ink-line pl-4">
+                {tail.map((row, idx) => (
+                  <ProbabilityBar
+                    key={row.team.code}
+                    prefix={row.team.flag}
+                    label={row.team.name}
+                    probability={row.probability}
+                    tone="muted"
+                    size="xs"
+                    delayMs={idx * 60}
+                    sub={`Group ${row.team.group}`}
+                    accessory={spark(row.team.code, row.team.name)}
+                  />
+                ))}
+              </div>
+            </details>
           )}
         </div>
       </section>
@@ -385,7 +500,7 @@ function PredictionSections({ prediction }: { prediction: MatchPrediction }) {
         </div>
       </section>
 
-      {prediction.mostLikelyScores && (
+      {prediction.mostLikelyScores && !played && (
         <>
           <Separator className="my-12 bg-ink-line" />
           <ScorelineSection
@@ -403,27 +518,31 @@ function PredictionSections({ prediction }: { prediction: MatchPrediction }) {
         </>
       )}
 
-      <Separator className="my-12 bg-ink-line" />
+      {!played && (
+        <>
+          <Separator className="my-12 bg-ink-line" />
 
-      <VerdictCard
-        title={
-          leader
-            ? `${leader.team.name} is most likely on this pitch.`
-            : "Stay flexible."
-        }
-        verdict={deriveVerdict(leader?.probability ?? 0)}
-        body={
-          leader
-            ? `${formatProbability(leader.probability)} of our simulations put ${leader.team.name} into this match. The bracket re-prices as real group results land — check back after each matchday.`
-            : "Probabilities are still warming up. Check back when the agent has a verdict."
-        }
-        confidence={leader?.probability}
-        accessory={
-          <span className="label-mono rounded-full border border-ink-line bg-paper/40 px-2 py-1 text-twilight">
-            Trace · Phoenix MCP
-          </span>
-        }
-      />
+          <VerdictCard
+            title={
+              leader
+                ? `${leader.team.name} is most likely on this pitch.`
+                : "Stay flexible."
+            }
+            verdict={deriveVerdict(leader?.probability ?? 0)}
+            body={
+              leader
+                ? `${formatProbability(leader.probability)} of our simulations put ${leader.team.name} into this match. The bracket re-prices as real results land — check back after each matchday.`
+                : "Probabilities are still warming up. Check back when the agent has a verdict."
+            }
+            confidence={leader?.probability}
+            accessory={
+              <span className="label-mono rounded-full border border-ink-line bg-paper/40 px-2 py-1 text-twilight">
+                Trace · Phoenix MCP
+              </span>
+            }
+          />
+        </>
+      )}
     </>
   );
 }

@@ -93,12 +93,17 @@ def simulate_group_stage(
         if fixture.round != "group":
             continue
         a, b = fixture.team_a, fixture.team_b
-        bonus_a = home_bonus(a, fixture)
-        bonus_b = home_bonus(b, fixture)
-        # `home_a` is a *relative* edge; net out B's own home bonus.
-        goals_a, goals_b = sample_score(
-            state.elo[a], state.elo[b], home_a=bonus_a - bonus_b, rng=rng
-        )
+        played = state.results.get(fixture.id)
+        if played is not None:
+            # Real result on the books — every simulation replays it.
+            goals_a, goals_b = played.goals_a, played.goals_b
+        else:
+            bonus_a = home_bonus(a, fixture)
+            bonus_b = home_bonus(b, fixture)
+            # `home_a` is a *relative* edge; net out B's own home bonus.
+            goals_a, goals_b = sample_score(
+                state.elo[a], state.elo[b], home_a=bonus_a - bonus_b, rng=rng
+            )
         scores_by_group[fixture.group][fixture.id] = (goals_a, goals_b)
 
         rec_a, rec_b = records[a], records[b]

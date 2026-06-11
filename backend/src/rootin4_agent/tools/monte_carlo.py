@@ -1,10 +1,18 @@
 """Monte Carlo tools exposed to the ADK agent (and the REST layer).
 
-The aggregate is cached per (n_samples, seed, priors-overlay) so repeated
-questions don't re-simulate. `update_priors` is the write-half of the
-Phoenix self-correction loop: the agent introspects its calibration via
-the Phoenix MCP tools, then nudges a team's Elo here — the next
-simulation run picks the correction up automatically.
+The aggregate is cached per (n_samples, seed, priors-overlay, results)
+so repeated questions don't re-simulate. Two write paths invalidate it:
+
+* `update_priors` — the Phoenix self-correction loop: the agent
+  introspects its calibration via the Phoenix MCP tools, then nudges a
+  team's Elo here.
+* recorded real results (`tools.results_service`) — played matches are
+  locked to their actual score and both teams' Elo gets the standard
+  K-factor update before the remaining fixtures are sampled.
+
+Every real-world event (baseline, result, correction) also appends a
+probability snapshot to the durable history — that's what the UI's
+"price over time" sparklines read.
 """
 
 from __future__ import annotations
@@ -15,7 +23,9 @@ from collections import deque
 from dataclasses import replace
 from datetime import UTC, datetime
 
+from ..storage import get_store
 from ..tournament.aggregate import TournamentAggregate, run
+from ..tournament.results import MatchResult, apply_results_to_elo
 from ..tournament.state import TournamentState, load_default_state
 
 logger = logging.getLogger(__name__)
@@ -59,38 +69,69 @@ def get_engine_stats() -> dict:
     }
 
 
-def _current_state() -> TournamentState:
+def get_recorded_results() -> dict[int, MatchResult]:
+    """Operator-recorded real results, freshest copy the store will give."""
+    out: dict[int, MatchResult] = {}
+    for raw in get_store().load_results():
+        try:
+            res = MatchResult.from_dict(raw)
+        except (KeyError, ValueError, TypeError):
+            logger.warning("skipping malformed stored result: %r", raw)
+            continue
+        out[res.match_id] = res
+    return out
+
+
+def _current_state(results: dict[int, MatchResult]) -> TournamentState:
     base = load_default_state()
-    if not _elo_overrides:
-        return base
-    elo = dict(base.elo)
+    # Order matters: real-result Elo updates first, then the agent's
+    # Phoenix-driven corrections on top (they are judgment, not data).
+    elo = apply_results_to_elo(base, results) if results else dict(base.elo)
     for code, delta in _elo_overrides.items():
         elo[code] = elo.get(code, 1500.0) + delta
-    return replace(base, elo=elo)
+    return replace(base, elo=elo, results=results)
+
+
+def _results_fingerprint(results: dict[int, MatchResult]) -> tuple:
+    return tuple(
+        (r.match_id, r.goals_a, r.goals_b, r.winner or "")
+        for _, r in sorted(results.items())
+    )
 
 
 def get_aggregate(
     n_samples: int = DEFAULT_N_SAMPLES, seed: int = DEFAULT_SEED
 ) -> TournamentAggregate:
-    """Cached aggregate for the current priors overlay (REST + tools)."""
+    """Cached aggregate for the current priors + results (REST + tools)."""
     global _total_tournaments
+    results = get_recorded_results()
     with _lock:
-        key = (n_samples, seed, tuple(sorted(_elo_overrides.items())))
+        key = (
+            n_samples,
+            seed,
+            tuple(sorted(_elo_overrides.items())),
+            _results_fingerprint(results),
+        )
         if key not in _cache:
-            _cache[key] = run(_current_state(), n_samples=n_samples, seed=seed)
+            _cache[key] = run(
+                _current_state(results), n_samples=n_samples, seed=seed
+            )
             _cache_ts[key] = datetime.now(UTC).isoformat()
             if len(_cache) > 8:  # keep the hot entries, drop the oldest
                 dropped = next(iter(_cache))
                 _cache.pop(dropped)
                 _cache_ts.pop(dropped, None)
             _total_tournaments += n_samples
-            corrections = (
-                f" with {len(_elo_overrides)} Elo correction(s) applied"
-                if _elo_overrides
-                else ""
-            )
+            conditioning = []
+            if results:
+                conditioning.append(f"{len(results)} real result(s) locked in")
+            if _elo_overrides:
+                conditioning.append(
+                    f"{len(_elo_overrides)} Elo correction(s) applied"
+                )
+            suffix = f" — {', '.join(conditioning)}" if conditioning else ""
             log_activity(
-                f"Engine run: {n_samples:,} full tournaments simulated{corrections}"
+                f"Engine run: {n_samples:,} full tournaments simulated{suffix}"
             )
         return _cache[key]
 
@@ -100,8 +141,77 @@ def get_aggregate_timestamp(
 ) -> str:
     """When the served aggregate was actually computed (honest freshness)."""
     get_aggregate(n_samples, seed)  # ensure it exists
-    key = (n_samples, seed, tuple(sorted(_elo_overrides.items())))
+    key = (
+        n_samples,
+        seed,
+        tuple(sorted(_elo_overrides.items())),
+        _results_fingerprint(get_recorded_results()),
+    )
     return _cache_ts.get(key, datetime.now(UTC).isoformat())
+
+
+def invalidate_aggregates() -> None:
+    """Drop every cached aggregate (a result landed or was rolled back)."""
+    with _lock:
+        _cache.clear()
+        _cache_ts.clear()
+
+
+# ---------------------------------------------------------------------------
+# Probability history — one snapshot per real-world event
+# ---------------------------------------------------------------------------
+
+
+def take_snapshot(trigger: str, kind: str = "event") -> dict:
+    """Append the current probability surface to the durable history.
+
+    Snapshots are only ever taken on *real* events — baseline at first
+    boot, a recorded result, an agent self-correction — so each point on
+    the UI sparklines corresponds to something that actually happened.
+    """
+    agg = get_aggregate()
+    state = load_default_state()
+    fixtures: dict[str, dict[str, float]] = {}
+    group_outcomes: dict[str, dict[str, float]] = {}
+    for fid, fixture in state.fixtures.items():
+        fx = agg.fixtures[fid]
+        if fixture.round == "group":
+            n = fx.n_samples or 1
+            home = sum(c for (ga, gb), c in fx.score_dist.items() if ga > gb)
+            away = sum(c for (ga, gb), c in fx.score_dist.items() if ga < gb)
+            group_outcomes[str(fid)] = {
+                "home": round(home / n, 4),
+                "draw": round((n - home - away) / n, 4),
+                "away": round(away / n, 4),
+            }
+        else:
+            fixtures[str(fid)] = {
+                code: round(p, 4)
+                for code, p in list(fx.team_probs.items())[:8]
+            }
+    snapshot = {
+        "ts": datetime.now(UTC).isoformat(),
+        "trigger": trigger,
+        "kind": kind,
+        "n_samples": agg.n_samples,
+        "champions": {
+            code: round(p, 4) for code, p in agg.champion_probs.items()
+        },
+        "fixtures": fixtures,
+        "group_outcomes": group_outcomes,
+    }
+    get_store().append_history(snapshot)
+    return snapshot
+
+
+def ensure_baseline_snapshot() -> None:
+    """First boot of the season: anchor the sparklines' opening price."""
+    try:
+        if not get_store().load_history():
+            take_snapshot("Pre-tournament baseline", kind="baseline")
+            logger.info("baseline probability snapshot recorded")
+    except Exception:  # pragma: no cover — never block startup on history
+        logger.exception("baseline snapshot failed")
 
 
 def _team_label(code: str) -> str:
@@ -126,8 +236,10 @@ def run_monte_carlo(n_simulations: int = 5000) -> dict:
     """
     n = max(500, min(int(n_simulations), 20_000))
     agg = get_aggregate(n_samples=n)
+    results = get_recorded_results()
     return {
         "n_simulations": agg.n_samples,
+        "real_results_conditioned_on": len(results),
         "champion_probabilities": [
             {"team": _team_label(code), "code": code, "probability": round(p, 4)}
             for code, p in list(agg.champion_probs.items())[:12]
@@ -135,7 +247,8 @@ def run_monte_carlo(n_simulations: int = 5000) -> dict:
         "active_elo_corrections": dict(_elo_overrides),
         "note": (
             "Probabilities are empirical frequencies over the simulated "
-            "tournaments. Cite n_simulations when quoting them."
+            "tournaments, conditioned on every recorded real result. "
+            "Cite n_simulations when quoting them."
         ),
     }
 
@@ -254,7 +367,9 @@ def team_match_probabilities(team_code: str) -> dict:
     return {
         "team": _team_label(code),
         "group": team.group,
-        "elo": state.elo[code] + _elo_overrides.get(code, 0.0),
+        # Effective rating: pre-tournament seed + real-result updates +
+        # agent corrections — what the sims actually used.
+        "elo": round(_current_state(get_recorded_results()).elo[code], 1),
         "n_simulations": agg.n_samples,
         "guaranteed_group_matches": group_fixtures,
         "knockout_appearance_probabilities": knockout_probs,
@@ -298,6 +413,10 @@ def update_priors(team_code: str, elo_delta: float, reason: str) -> dict:
         kind="correction",
     )
     logger.info("priors updated: %s %+0.1f (%s)", code, delta, reason)
+    try:
+        take_snapshot(f"Self-correction: {code} {delta:+.0f} Elo", "correction")
+    except Exception:  # history must never fail the tool call
+        logger.exception("snapshot after update_priors failed")
     return {
         "team": _team_label(code),
         "old_elo": round(old, 1),

@@ -13,6 +13,8 @@ type Props = {
   delayMs?: number;
   /** Compact heights. `default` ≈ 72px, `sm` ≈ 48px, `xs` ≈ 36px. */
   size?: "default" | "sm" | "xs";
+  /** Optional inline element next to the % (sparkline, chevron, …). */
+  accessory?: React.ReactNode;
   className?: string;
 };
 
@@ -23,6 +25,13 @@ const TONE_CLASS: Record<Tone, string> = {
   muted: "prob-fill--muted",
 };
 
+const TONE_TEXT: Record<Tone, string> = {
+  twilight: "text-twilight",
+  horizon: "text-horizon",
+  ink: "text-ink",
+  muted: "text-ink-soft",
+};
+
 export function ProbabilityBar({
   label,
   prefix,
@@ -31,6 +40,7 @@ export function ProbabilityBar({
   sub,
   delayMs = 0,
   size = "default",
+  accessory,
   className,
 }: Props) {
   const pct = Math.max(0, Math.min(100, +(probability * 100).toFixed(1)));
@@ -50,8 +60,15 @@ export function ProbabilityBar({
             {label}
           </span>
         </div>
-        <span className="font-mono text-lg font-medium tabular-nums text-ink sm:text-xl">
-          {pct.toFixed(1)}%
+        <span className="flex items-center gap-3">
+          {accessory && (
+            <span className={TONE_TEXT[tone]} aria-hidden={false}>
+              {accessory}
+            </span>
+          )}
+          <span className="font-mono text-lg font-medium tabular-nums text-ink sm:text-xl">
+            {pct.toFixed(1)}%
+          </span>
         </span>
       </div>
 

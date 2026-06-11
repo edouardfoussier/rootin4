@@ -24,21 +24,30 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .instrumentation import setup_observability
 from .settings import get_settings
 from .tools.health import health
 from .tools.monte_carlo import (
+    ensure_baseline_snapshot,
     get_activity,
     get_aggregate,
     get_aggregate_timestamp,
     get_engine_stats,
     get_priors_log,
+    get_recorded_results,
     log_activity,
+)
+from .tools.results_service import (
+    champions_history,
+    delete_result,
+    list_match_results,
+    match_history,
+    record_result,
 )
 from .tournament.state import load_default_state
 
@@ -97,11 +106,17 @@ async def _get_runner():
     return _runner
 
 
+def _warm_engine() -> None:
+    get_aggregate()
+    # Anchor the sparklines' opening price on the very first boot.
+    ensure_baseline_snapshot()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_observability()
     # Warm the default Monte Carlo aggregate off the request path.
-    threading.Thread(target=get_aggregate, daemon=True).start()
+    threading.Thread(target=_warm_engine, daemon=True).start()
     logger.info(
         "rootin4-agent ready (env=%s, model=%s)",
         get_settings().rootin4_env,
@@ -266,11 +281,27 @@ def prediction(match_id: int) -> dict[str, Any]:
         }
         for (a, b), p in list(fx.pair_probs.items())[:5]
     ]
+    recorded = get_recorded_results().get(match_id)
     return {
         "matchId": match_id,
         "iterations": n,
         # Honest freshness: when the aggregate was computed, not "now".
         "lastUpdatedIso": get_aggregate_timestamp(),
+        # Real final score once the operator records it — the UI flips
+        # from forecast to full-time mode on this field.
+        "result": (
+            {
+                "teamA": recorded.team_a,
+                "teamB": recorded.team_b,
+                "goalsA": recorded.goals_a,
+                "goalsB": recorded.goals_b,
+                "scoreLine": recorded.score_line(),
+                "winner": recorded.winner,
+                "recordedAt": recorded.recorded_at,
+            }
+            if recorded
+            else None
+        ),
         "teamProbabilities": team_probabilities,
         "pairProbabilities": pair_probabilities,
         "mostLikelyScores": [
@@ -321,6 +352,80 @@ def priors() -> dict[str, Any]:
 def activity() -> dict[str, Any]:
     """Real engine/agent events + cumulative counters (nothing staged)."""
     return {"events": get_activity(), "stats": get_engine_stats()}
+
+
+# ---------------------------------------------------------------------------
+# Real results (operator writes, public reads) + probability history
+# ---------------------------------------------------------------------------
+
+
+class ResultPayload(BaseModel):
+    """Body for POST /api/admin/results."""
+
+    match_id: int = Field(ge=1, le=104)
+    goals_a: int = Field(ge=0, le=15)
+    goals_b: int = Field(ge=0, le=15)
+    # Knockout fixtures only: the actual teams (the schedule has slots),
+    # and the shootout winner when the score is level.
+    team_a: str | None = None
+    team_b: str | None = None
+    winner: str | None = None
+
+
+def _require_admin(x_admin_token: str | None = Header(default=None)) -> None:
+    expected = get_settings().rootin4_admin_token
+    if not expected:
+        raise HTTPException(
+            status_code=503, detail="result recording is not configured"
+        )
+    if x_admin_token != expected:
+        raise HTTPException(status_code=401, detail="bad or missing admin token")
+
+
+@app.post("/api/admin/results", dependencies=[Depends(_require_admin)])
+def admin_record_result(payload: ResultPayload) -> dict[str, Any]:
+    """Record a final score; sims re-price around it immediately."""
+    try:
+        return record_result(
+            payload.match_id,
+            payload.goals_a,
+            payload.goals_b,
+            winner=payload.winner,
+            team_a=payload.team_a,
+            team_b=payload.team_b,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/api/admin/results/{match_id}", dependencies=[Depends(_require_admin)])
+def admin_delete_result(match_id: int) -> dict[str, Any]:
+    """Roll back a mistyped result."""
+    try:
+        return delete_result(match_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/results")
+def results() -> dict[str, Any]:
+    """Recorded real results (public, read-only)."""
+    return list_match_results()
+
+
+@app.get("/api/history/champions")
+def history_champions(top: int = 16) -> dict[str, Any]:
+    """Championship-odds timeline — one point per real-world event."""
+    return champions_history(top=max(1, min(top, 48)))
+
+
+@app.get("/api/history/match/{match_id}")
+def history_match(match_id: int) -> dict[str, Any]:
+    """Per-fixture probability timeline (teams for KO, outcomes for groups)."""
+    try:
+        return match_history(match_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 def run() -> None:

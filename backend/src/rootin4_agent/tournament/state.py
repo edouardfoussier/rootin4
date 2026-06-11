@@ -10,7 +10,10 @@ fixture list and group composition are loaded once at process start
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .results import MatchResult
 
 HostCountry = Literal["USA", "CAN", "MEX"]
 Round = Literal["group", "r32", "r16", "qf", "sf", "tp", "final"]
@@ -61,6 +64,9 @@ class TournamentState:
     teams: dict[str, Team]           # team_code → Team
     fixtures: dict[int, Fixture]     # match_id → Fixture
     elo: dict[str, float] = field(default_factory=dict)
+    # Real, operator-recorded results (match_id → MatchResult). Played
+    # matches are locked to these scores instead of being sampled.
+    results: dict[int, "MatchResult"] = field(default_factory=dict)
 
 
 def load_default_state() -> TournamentState:

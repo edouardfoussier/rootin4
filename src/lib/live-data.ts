@@ -1,4 +1,4 @@
-import type { MatchPrediction } from "@/lib/predictions";
+import type { MatchHistory, MatchPrediction } from "@/lib/predictions";
 
 /**
  * Server-side accessors for the Rootin4 agent backend (Cloud Run).
@@ -22,6 +22,25 @@ export async function getLivePrediction(
     });
     if (!res.ok) throw new Error(`backend responded ${res.status}`);
     return (await res.json()) as MatchPrediction;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Probability timeline for a fixture — feeds the "price over time"
+ * sparklines. One point per real-world event, so an empty/short series
+ * just means nothing has happened yet (no fake history).
+ */
+export async function getMatchHistory(
+  matchId: number
+): Promise<MatchHistory | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/history/match/${matchId}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error(`backend responded ${res.status}`);
+    return (await res.json()) as MatchHistory;
   } catch {
     return null;
   }

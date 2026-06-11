@@ -21,61 +21,63 @@ export default function AboutPage() {
           </h1>
 
           <Lead>
-            Every other World Cup product is trying to predict who wins the
-            tournament. We&apos;re trying to predict who actually shows up at
-            the seat you already bought.
+            Every World Cup product tries to predict who lifts the trophy.
+            Rootin4 answers a smaller, more personal question: who actually
+            plays at the seat you already bought?
           </Lead>
 
+          <SectionLabel>The riddle</SectionLabel>
           <Body>
-            The 2026 World Cup runs across three countries, sixteen stadiums,
-            and one hundred and four matches. Most of the knockout-stage
-            tickets were sold months before the bracket was decided — which
-            means most knockout-stage ticket-holders are sitting on a riddle.
-            Winner Group K versus the third-place finisher from Group D, E, I,
-            J, or L. Now what?
+            The 2026 World Cup spans three countries, sixteen stadiums and
+            104 matches — and tickets are sold by match number, months before
+            the bracket exists. If you hold a knockout ticket, your seat reads
+            like a puzzle: <em className="font-display">Winner Group K versus
+            a third-place finisher from Group D, E, I, J or L</em>. Rootin4
+            translates that into probabilities per team and per pairing, and
+            into one plain-language answer: should you get on the plane?
+          </Body>
+
+          <SectionLabel>How the numbers are made</SectionLabel>
+          <Body>
+            A Monte Carlo engine replays the entire tournament thousands of
+            times per question — all 104 fixtures, FIFA tiebreakers, the
+            third-place allocation, penalty shootouts — from Elo-based team
+            strengths. The probability next to a team is simply the share of
+            simulated tournaments in which it reaches your match.
+          </Body>
+          <Body>
+            Once the tournament kicks off, reality takes over: every recorded
+            result is locked into the simulations, and both teams&apos;
+            ratings are updated from it before the remaining fixtures are
+            sampled. The small chart beside each probability is that
+            number&apos;s history — one step per real event, the way a market
+            re-prices on news.
+          </Body>
+
+          <SectionLabel>The agent that audits itself</SectionLabel>
+          <Body>
+            On top of the engine sits an agent built with Google&apos;s Agent
+            Development Kit and Gemini 2.5. Every model call and tool call is
+            traced to Arize Phoenix — and the agent can read those traces
+            back. Ask it to audit its calibration: when the evidence shows a
+            systematic bias, it corrects its own priors and says so. The
+            system is designed to sharpen as the tournament progresses —
+            exactly when your decision gets urgent.
+          </Body>
+
+          <SectionLabel>Why you can trust it</SectionLabel>
+          <Body>
+            Three rules keep us honest. Every number is computed live by the
+            engine — no placeholders, ever. Every change of mind is public —
+            results, corrections and re-pricing all land in the activity feed
+            and on the charts. And if the backend is unreachable, we show
+            nothing rather than something made up.
           </Body>
 
           <Body>
-            Rootin4 is a weather forecast for that riddle. Not betting odds,
-            not a fantasy bracket, not a countdown clock. A calm,
-            continuously-updating probability per team and per pairing for
-            each match, with a single plain-language answer to the only
-            question that actually matters: should I get on the plane?
-          </Body>
-
-          <Body>
-            Behind the surface is an agent built on Google&apos;s Agent
-            Development Kit and Gemini 2.5.{" "}
-            <em className="font-display">
-              Every number on this site is computed live
-            </em>{" "}
-            by a Monte Carlo engine that replays the entire tournament —
-            all 104 matches, FIFA tiebreakers, the third-place wildcard
-            allocation, penalty shootouts — thousands of times per question.
-            Every Gemini call and every tool call is traced to Arize Phoenix,
-            and the agent can read those traces back: ask it to audit itself
-            and, when the evidence shows a systematic bias, it corrects its
-            own Elo priors on the spot. The model is designed to get better
-            the deeper the tournament goes — exactly when it matters most.
-          </Body>
-
-          <Body>
-            We show that work. Every probability you see on this site is
-            traced in Arize Phoenix; when the agent corrects itself, that
-            entry shows up in the ticker pinned to the bottom of your screen;
-            when it identifies a systematic bias in its own thinking, that
-            goes on the agent page. We&apos;d rather show you a model that
-            publicly changes its mind than a confident number with no soul.
-          </Body>
-
-          <Body>
-            Rootin4 is for Marco in Lyon, who owns a Round-of-32 ticket and
-            isn&apos;t a stats nerd. It&apos;s for everyone who bought into
-            the riddle and now wants the riddle translated, gently, into a
-            decision. We can&apos;t tell you who&apos;ll lift the trophy in
-            New Jersey on the nineteenth of July. We aim to tell you, with
-            calibrated honesty, who is most likely to be standing on the
-            pitch in front of your seat.
+            We can&apos;t tell you who lifts the trophy in New Jersey on July
+            19. We aim to tell you, with calibrated honesty, who is most
+            likely to be standing on the pitch in front of your seat.
           </Body>
 
           <p className="mt-12 font-display text-4xl italic text-horizon">
@@ -114,6 +116,14 @@ function Lead({ children }: { children: React.ReactNode }) {
     <p className="mt-10 font-display text-3xl italic leading-[1.25] text-ink sm:text-4xl">
       {children}
     </p>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="label-mono mt-12 border-t border-ink-line pt-6 text-twilight">
+      {children}
+    </h2>
   );
 }
 

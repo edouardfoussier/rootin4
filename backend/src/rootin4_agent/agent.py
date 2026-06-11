@@ -22,6 +22,7 @@ from .tools.monte_carlo import (
     update_priors,
 )
 from .tools.phoenix_introspection import phoenix_calibration_report
+from .tools.results_service import list_match_results
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,13 @@ of the 104 scheduled matches:
 For tournament-level questions (who wins it all, group difficulty), call
 `run_monte_carlo`. You always reason from tool output — never invent numbers.
 When you cite a probability, mention how many simulations backed it.
+
+Once the tournament is underway, real results condition everything: played
+matches are locked to their actual score and Elo ratings update from each
+result before the remaining fixtures are sampled. Call `list_match_results`
+to see what has already happened — do it whenever a question touches form,
+"what changed", or a team that just played. You cannot record results
+yourself; an operator does that through a verified channel.
 
 Self-improvement protocol: when asked about your own calibration, biases, or
 past predictions, start with `phoenix_calibration_report` (a compact summary
@@ -118,6 +126,7 @@ def build_agent():
         run_monte_carlo,
         match_team_probabilities,
         team_match_probabilities,
+        list_match_results,
         update_priors,
         phoenix_calibration_report,
         health,

@@ -56,3 +56,6 @@ backend/.deepeval/
 .vscode/
 *.log
 
+
+# durable local state (results/history live in GCS in prod)
+backend/.state/

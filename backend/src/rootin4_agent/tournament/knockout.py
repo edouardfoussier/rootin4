@@ -156,22 +156,33 @@ def play_knockout(
             team_a = _resolve_feeder(fixture.slot_a, outcome)
             team_b = _resolve_feeder(fixture.slot_b, outcome)
 
-        bonus_a = home_bonus(team_a, fixture)
-        bonus_b = home_bonus(team_b, fixture)
-        goals_a, goals_b = sample_score(
-            state.elo[team_a],
-            state.elo[team_b],
-            home_a=bonus_a - bonus_b,
-            rng=rng,
-        )
-        pens = goals_a == goals_b
-        if pens:
-            side = penalty_winner(
-                state.elo[team_a] + bonus_a, state.elo[team_b] + bonus_b, rng
-            )
-            winner = team_a if side == "A" else team_b
+        played = state.results.get(match_id)
+        if played is not None and {team_a, team_b} == {played.team_a, played.team_b}:
+            # Real result, and this simulation reached the real pairing —
+            # replay it (goals re-aligned to the resolved slot order).
+            if team_a == played.team_a:
+                goals_a, goals_b = played.goals_a, played.goals_b
+            else:
+                goals_a, goals_b = played.goals_b, played.goals_a
+            pens = played.is_draw
+            winner = played.winner or (team_a if goals_a > goals_b else team_b)
         else:
-            winner = team_a if goals_a > goals_b else team_b
+            bonus_a = home_bonus(team_a, fixture)
+            bonus_b = home_bonus(team_b, fixture)
+            goals_a, goals_b = sample_score(
+                state.elo[team_a],
+                state.elo[team_b],
+                home_a=bonus_a - bonus_b,
+                rng=rng,
+            )
+            pens = goals_a == goals_b
+            if pens:
+                side = penalty_winner(
+                    state.elo[team_a] + bonus_a, state.elo[team_b] + bonus_b, rng
+                )
+                winner = team_a if side == "A" else team_b
+            else:
+                winner = team_a if goals_a > goals_b else team_b
 
         outcome.matches[match_id] = KnockoutMatchResult(
             match_id=match_id,
