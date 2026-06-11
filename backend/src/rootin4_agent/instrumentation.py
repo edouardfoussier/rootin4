@@ -30,6 +30,10 @@ def setup_observability() -> None:
     settings = get_settings()
 
     if settings.phoenix_api_key:
+        # Modern Phoenix (Cloud spaces, ≥17.x) authenticates with a
+        # Bearer token; phoenix.otel picks PHOENIX_API_KEY up itself.
+        # Keep the legacy api_key header for older collectors.
+        os.environ.setdefault("PHOENIX_API_KEY", settings.phoenix_api_key)
         os.environ["PHOENIX_CLIENT_HEADERS"] = (
             f"api_key={settings.phoenix_api_key}"
         )

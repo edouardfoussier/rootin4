@@ -83,6 +83,17 @@ def _phoenix_mcp_toolset():
                 ),
                 timeout=30.0,
             ),
+            # The server exposes 27 tools; keep the introspection set so
+            # each Gemini call doesn't carry ~20 unused schemas.
+            tool_filter=[
+                "list-projects",
+                "get-spans",
+                "list-datasets",
+                "get-dataset-examples",
+                "add-dataset-examples",
+                "list-experiments-for-dataset",
+                "get-experiment-by-id",
+            ],
         )
     except Exception as exc:  # pragma: no cover — defensive, never crash boot
         logger.warning("Phoenix MCP toolset unavailable: %s", exc)
