@@ -41,9 +41,6 @@ class Settings(BaseSettings):
     # Flash keeps the chat loop snappy for the demo; set ROOTIN4_MODEL to
     # gemini-2.5-pro for deeper reasoning at higher latency.
     rootin4_model: str = Field(default="gemini-2.5-flash", alias="ROOTIN4_MODEL")
-    rootin4_database_url: str | None = Field(
-        default=None, alias="ROOTIN4_DATABASE_URL"
-    )
 
 
 @lru_cache(maxsize=1)

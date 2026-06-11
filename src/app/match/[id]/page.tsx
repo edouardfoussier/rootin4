@@ -15,7 +15,7 @@ import {
   getMatch,
   type MatchPrediction,
   type TeamProbability,
-} from "@/lib/stub-data";
+} from "@/lib/predictions";
 import {
   HOST_LABEL,
   ROUND_LABEL,

@@ -1,4 +1,4 @@
-import type { MatchPrediction } from "@/lib/stub-data";
+import type { MatchPrediction } from "@/lib/predictions";
 
 /**
  * Server-side accessors for the Rootin4 agent backend (Cloud Run).

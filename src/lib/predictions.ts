@@ -1,14 +1,11 @@
 /**
- * Prediction types + small helpers shared by the UI.
+ * Prediction payload types + small helpers shared by the UI.
  *
  * All probability data comes LIVE from the agent backend
- * (`live-data.ts` → Cloud Run → Monte Carlo engine). This module only
- * defines the payload shapes and match lookups — the hand-authored stub
- * predictions from the scaffold era are gone: if the backend is down we
- * show an honest empty state, never fabricated numbers.
- *
- * Real schedule data (stadium, date, slot description, etc.) lives in
- * `wc2026-data.ts` — never in this file.
+ * (`live-data.ts` → Cloud Run → Monte Carlo engine). If the backend is
+ * unreachable, pages render an honest empty state — never fabricated
+ * numbers. Real schedule data (stadium, date, slot descriptions) lives
+ * in `wc2026-data.ts`.
  */
 
 import { MATCHES_BY_ID, type Match, type Team } from "./wc2026-data";

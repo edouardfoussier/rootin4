@@ -45,7 +45,7 @@ corrections (`update_priors`) that shift every probability on the site.
 |                                  | Bracket sims (worldcuppredictor, bracket2026, …) | Rootin4 |
 | -------------------------------- | :----------------------------------------------: | :-----: |
 | Predict who wins the tournament  |                        ✅                       |   ✅    |
-| **Address each fixture by ID**   |                        ❌                       |   ✅    |
+| **Address each match by ID**   |                        ❌                       |   ✅    |
 | **Inverse view ("who at seat 87?")** |                    ❌                       |   ✅    |
 | Conversational agent over the model |                     ❌                       |   ✅    |
 | Self-improving (Phoenix MCP loop)|                        ❌                       |   ✅    |
@@ -68,7 +68,8 @@ corrections (`update_priors`) that shift every probability on the site.
 │  Tools exposed to the agent:                           │
 │   run_monte_carlo · match_team_probabilities ·         │
 │   team_match_probabilities · update_priors ·           │
-│   + 27 Phoenix MCP tools (traces, datasets, prompts)   │
+│   phoenix_calibration_report (token-safe trace audit)  │
+│   + Phoenix MCP toolset (projects·datasets·experiments)│
 └─────────┬──────────────────────┬───────────────────────┘
           │                      │ MCP (stdio)
    ┌──────▼─────────┐   ┌────────▼───────────┐
@@ -80,7 +81,7 @@ corrections (`update_priors`) that shift every probability on the site.
    └────────────────┘
 ```
 
-The 48 teams, 16 stadiums and 104 fixtures (December 5, 2025 draw, real
+The 48 teams, 16 stadiums and 104 matches (December 5, 2025 draw, real
 FIFA match numbers and knockout slot descriptors) live in one dataset,
 `src/lib/wc2026-data.ts`, mirrored to the backend as `data.json` — the
 TS UI and the Python sim can never disagree about a structural fact.
@@ -93,7 +94,7 @@ TS UI and the Python sim can never disagree about a structural fact.
 │   ├── app/
 │   │   ├── page.tsx                 # Home — hero, live teasers
 │   │   ├── agent/page.tsx           # Streaming agent chat + Phoenix loop panel
-│   │   ├── match/[id]/page.tsx      # Live per-fixture probabilities
+│   │   ├── match/[id]/page.tsx      # Live per-match probabilities
 │   │   └── api/                     # SSE / JSON proxies to the backend
 │   ├── components/
 │   └── lib/
@@ -107,12 +108,12 @@ TS UI and the Python sim can never disagree about a structural fact.
 │   │       ├── data.json            # WC2026 dataset (mirror of the TS source)
 │   │       ├── group_stage.py       # 72 matches + FIFA tiebreakers
 │   │       ├── knockout.py          # bracket walk + 3rd-place matching + pens
-│   │       └── aggregate.py         # N-run distributions per fixture
+│   │       └── aggregate.py         # N-run distributions per match
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── Dockerfile                   # python:3.12 + node (Phoenix MCP server)
 ├── Dockerfile            # Frontend standalone image for Cloud Run
-├── db/                   # Optional Postgres schema/seed (not required to run)
+├── datacamp-predictions/ # 104 predictions exported for DataCamp's WC26 competition
 └── README.md
 ```
 
@@ -167,9 +168,11 @@ gcloud run deploy rootin4-web --source . \
 
 1. **Trace** — OpenInference auto-instruments every Gemini call, tool
    call and agent step; spans stream to Phoenix Cloud.
-2. **Introspect** — the agent carries the Phoenix MCP toolset
-   (`get-spans`, `list-datasets`, `get-dataset-examples`, …). Ask it
-   *"any bias you should correct?"* and it reads its own telemetry.
+2. **Introspect** — ask it *"any bias you should correct?"* and the
+   agent reads its own telemetry: `phoenix_calibration_report` folds its
+   recent spans into a compact audit, and the Phoenix MCP toolset
+   (`list-projects`, `list-datasets`, `get-dataset-examples`, …) gives
+   it the catalog.
 3. **Correct** — when the evidence shows a systematic miss, the agent
    calls `update_priors(team, elo_delta, reason)`. The correction is
    logged, surfaces in the UI (`/agent` → Self-corrections), and every
