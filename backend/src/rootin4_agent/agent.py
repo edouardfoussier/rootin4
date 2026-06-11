@@ -62,10 +62,12 @@ def _phoenix_mcp_toolset():
         logger.warning("PHOENIX_API_KEY unset — Phoenix MCP tools disabled.")
         return None
     try:
-        from google.adk.tools.mcp_tool import (
-            McpToolset,
-            StdioConnectionParams,
-        )
+        from google.adk.tools.mcp_tool import StdioConnectionParams
+
+        try:
+            from google.adk.tools.mcp_tool import McpToolset
+        except ImportError:  # the casing changed across ADK releases
+            from google.adk.tools.mcp_tool import MCPToolset as McpToolset
         from mcp import StdioServerParameters
 
         return McpToolset(

@@ -22,9 +22,11 @@ RUN apt-get update \
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml README.md ./
+# Install from the lockfile so the image runs the exact versions we
+# develop and test against (google-adk APIs move between releases).
+COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 
-RUN uv pip install --system --no-cache .
+RUN uv sync --frozen --no-dev --no-editable
 
-CMD ["uvicorn", "rootin4_agent.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/app/.venv/bin/uvicorn", "rootin4_agent.main:app", "--host", "0.0.0.0", "--port", "8080"]
