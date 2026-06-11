@@ -24,7 +24,13 @@ import {
 
 type GroupBy = "date" | "round" | "stadium";
 
-const ROUND_OPTIONS: Round[] = ["group", "r32", "r16", "qf", "sf", "tp", "final"];
+// The product answers "who will actually play at my seat?" — a question
+// that only exists for the 32 knockout slots. Group matches (1-72) have
+// known line-ups and stay reachable via direct link / ticket jump, but
+// the explorer stays focused on the riddles.
+const RIDDLE_MATCHES = MATCHES.filter((m) => m.round !== "group");
+
+const ROUND_OPTIONS: Round[] = ["r32", "r16", "qf", "sf", "tp", "final"];
 const HOST_OPTIONS: HostCountry[] = ["USA", "CAN", "MEX"];
 
 /** Which group letters can feed each knockout match, following the
@@ -107,7 +113,6 @@ export function ScheduleExplorer() {
   const [hostFilter, setHostFilter] = useState<HostCountry | "ALL">("ALL");
   const [roundFilter, setRoundFilter] = useState<Round | "ALL">("ALL");
   const [teamFilter, setTeamFilter] = useState<string>("");
-  const [riddlesOnly, setRiddlesOnly] = useState(false);
   const { ticket } = useMyTicket();
 
   const teams = useMemo(() => {
@@ -117,24 +122,19 @@ export function ScheduleExplorer() {
   const filteredMatches = useMemo(() => {
     const teamCode = teamFilter || null;
     const team = teamCode ? TEAMS[teamCode as keyof typeof TEAMS] : null;
-    return MATCHES.filter((m) => {
-      if (riddlesOnly && m.round === "group") return false;
+    return RIDDLE_MATCHES.filter((m) => {
       if (hostFilter !== "ALL" && m.hostCountry !== hostFilter) return false;
       if (roundFilter !== "ALL" && m.round !== roundFilter) return false;
       if (teamCode) {
+        // Every match this team's group can feed into, following
+        // "Winner Match N" chains all the way to the final.
         const matchesTeam =
-          m.teamA === teamCode ||
-          m.teamB === teamCode ||
-          // Knockout slots: every match this team's group can feed into,
-          // following "Winner Match N" chains all the way to the final.
-          (m.round !== "group" &&
-            !!team &&
-            (CANDIDATE_GROUPS.get(m.id)?.has(team.group) ?? false));
+          !!team && (CANDIDATE_GROUPS.get(m.id)?.has(team.group) ?? false);
         if (!matchesTeam) return false;
       }
       return true;
     });
-  }, [hostFilter, roundFilter, teamFilter, riddlesOnly]);
+  }, [hostFilter, roundFilter, teamFilter]);
 
   const grouped = useMemo(() => groupMatches(filteredMatches, groupBy), [
     filteredMatches,
@@ -143,19 +143,11 @@ export function ScheduleExplorer() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setRiddlesOnly((v) => !v)}
-          aria-pressed={riddlesOnly}
-          className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-            riddlesOnly
-              ? "border-twilight bg-twilight text-paper"
-              : "border-ink-line bg-paper/60 text-ink hover:border-twilight hover:text-twilight"
-          }`}
-        >
-          🧩 Knockout riddles — nobody knows who plays
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="label-mono text-ink-soft">
+          32 knockout matches · nobody knows who plays — that&apos;s the
+          riddle we price
+        </p>
         <MatchJump />
       </div>
       <FilterBar
@@ -415,7 +407,7 @@ function EmptyState() {
       <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
         <p className="font-display text-xl font-medium">No matches fit these filters.</p>
         <p className="text-sm text-muted-foreground">
-          Try widening the host, round, or team — or reset to see all 104.
+          Try widening the host, round, or team — or reset to see all 32.
         </p>
       </CardContent>
     </Card>

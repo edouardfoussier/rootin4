@@ -81,7 +81,7 @@ export default function Home() {
               href="/schedule"
               className="label-mono text-ink-soft transition hover:text-horizon"
             >
-              All 104 matches →
+              All 32 riddle matches →
             </Link>
           </header>
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">

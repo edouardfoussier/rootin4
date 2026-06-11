@@ -10,15 +10,29 @@ export type MyTicket = {
   markedAtIso: string;
 };
 
+// useSyncExternalStore compares snapshots with Object.is — getSnapshot
+// must return the SAME reference until the underlying data changes, or
+// React loops forever re-rendering. Cache the parse keyed on the raw
+// string.
+let cachedRaw: string | null | undefined;
+let cachedTicket: MyTicket | null = null;
+
 function readTicket(): MyTicket | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as MyTicket;
-    if (typeof parsed?.matchId !== "number") return null;
-    return parsed;
+    if (raw === cachedRaw) return cachedTicket;
+    cachedRaw = raw;
+    if (!raw) {
+      cachedTicket = null;
+    } else {
+      const parsed = JSON.parse(raw) as MyTicket;
+      cachedTicket = typeof parsed?.matchId === "number" ? parsed : null;
+    }
+    return cachedTicket;
   } catch {
+    cachedRaw = undefined;
+    cachedTicket = null;
     return null;
   }
 }
