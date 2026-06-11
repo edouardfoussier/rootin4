@@ -1,22 +1,18 @@
 import type { Metadata } from "next";
-import {
-  Inter,
-  JetBrains_Mono,
-  Playfair_Display,
-} from "next/font/google";
+import { Anton, Inter, JetBrains_Mono } from "next/font/google";
 
 import { AgentTicker } from "@/components/agent-ticker";
 import { AtmosphericField } from "@/components/atmospheric-field";
 
 import "./globals.css";
 
-// Playfair Display is *only ever italic* on this site — the rule that ties
-// every editorial moment together. 700 + 900 cover bold and ultra-bold.
-const playfair = Playfair_Display({
+// Anton carries the tournament-poster energy: one heavy condensed cut,
+// always uppercase (handled by .font-display). Italic accents lean on
+// the synthetic slant — reads like a speed skew, on brand for matchday.
+const anton = Anton({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["700", "900"],
-  style: ["italic"],
+  weight: "400",
   display: "swap",
 });
 
@@ -48,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${anton.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="bg-ambient relative min-h-full font-sans text-ink">
         <AtmosphericField />

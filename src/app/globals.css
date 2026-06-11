@@ -5,38 +5,37 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================================
- *  Rootin4 — Ambient Living Forecast
+ *  Rootin4 — Stadium Broadcast
  *
- *  Visual identity ported from Lovable's spec, with light polish:
- *   - fonts loaded via next/font/google (--font-display / --font-sans / --font-mono
- *     are set on the <html> tag by layout.tsx)
- *   - blur radii tuned down on mobile (perf)
- *   - safe-area awareness for the bottom AgentTicker
- *   - shadcn semantic tokens (--background / --foreground / --primary / ...)
- *     are aliased to the new palette so existing shadcn components keep
- *     working without a rewrite.
+ *  Matchday re-skin inspired by the FIFA WC26 visual language: cream-white
+ *  field, deep navy ink, electric blue + vivid red accents, condensed
+ *  uppercase display type (Anton). The token NAMES are unchanged so every
+ *  component keeps working:
+ *   - `twilight` now means "electric blue" (primary action / #1 bars)
+ *   - `horizon` now means "matchday red" (live dot, deltas, #2 bars)
+ *   - shadcn semantic tokens stay aliased to the palette.
  * ============================================================================ */
 
 @layer base {
   :root {
     /* --- core palette ------------------------------------------------------ */
-    --paper:    #fdfcfb;
-    --sky:      #e0f2fe;
-    --twilight: #312e81;
-    --horizon:  #fb923c;
-    --ink:      #1e1b4b;
+    --paper:    #fffcf5;
+    --sky:      #dbeafe;
+    --twilight: #2563eb;
+    --horizon:  #dc2626;
+    --ink:      #0d1b3e;
     --ink-soft: color-mix(in oklab, var(--ink) 60%, transparent);
     --ink-line: color-mix(in oklab, var(--ink) 10%, transparent);
 
-    --glass-bg:     color-mix(in oklab, white 40%, transparent);
-    --glass-border: color-mix(in oklab, white 55%, transparent);
+    --glass-bg:     color-mix(in oklab, white 45%, transparent);
+    --glass-border: color-mix(in oklab, white 60%, transparent);
 
-    /* --- shadows (atmospheric, twilight-tinted) ---------------------------- */
-    --shadow-sm: 0 1px 2px rgba(30, 27, 75, 0.04);
-    --shadow-md: 0 8px 24px -8px rgba(30, 27, 75, 0.08);
-    --shadow-glass: 0 24px 64px -24px rgba(49, 46, 129, 0.18);
-    --shadow-glow-twilight: 0 0 40px rgba(49, 46, 129, 0.28);
-    --shadow-glow-horizon:  0 0 40px rgba(251, 146, 60, 0.30);
+    /* --- shadows (broadcast, blue/red-tinted) ------------------------------ */
+    --shadow-sm: 0 1px 2px rgba(13, 27, 62, 0.05);
+    --shadow-md: 0 8px 24px -8px rgba(13, 27, 62, 0.10);
+    --shadow-glass: 0 24px 64px -24px rgba(37, 99, 235, 0.16);
+    --shadow-glow-twilight: 0 0 40px rgba(37, 99, 235, 0.30);
+    --shadow-glow-horizon:  0 0 40px rgba(220, 38, 38, 0.26);
 
     /* --- motion ------------------------------------------------------------ */
     --ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
@@ -81,12 +80,12 @@
   }
 
   .dark {
-    /* invert the metaphor: paper becomes nightsky, ink becomes paper */
-    --paper:    #0b0a1a;
+    /* night match: paper becomes floodlit navy, accents go neon */
+    --paper:    #081021;
     --sky:      #1e3a8a;
-    --twilight: #a5b4fc;   /* lighter indigo so it stays readable on nightsky */
-    --horizon:  #fb923c;   /* horizon survives — it's the sunset */
-    --ink:      #ece9ff;
+    --twilight: #60a5fa;   /* lighter blue so it stays readable at night */
+    --horizon:  #f87171;   /* red softens one notch under floodlights */
+    --ink:      #eaf1ff;
     --ink-soft: color-mix(in oklab, var(--ink) 60%, transparent);
     --ink-line: color-mix(in oklab, var(--ink) 12%, transparent);
 
@@ -218,11 +217,17 @@
     font-feature-settings: "ss01", "cv11", "tnum";
   }
 
-  /* Ambient gradient field — the calm twilight + sunset wash behind everything */
+  /* Ambient field — bright sky wash + a hint of matchday red, with
+     barely-there diagonal pitch stripes for motion energy */
   .bg-ambient {
     background:
-      radial-gradient(ellipse at 80% 12%, color-mix(in oklab, var(--sky) 88%, transparent) 0%, transparent 45%),
-      radial-gradient(ellipse at 18% 88%, color-mix(in oklab, var(--horizon) 30%, transparent) 0%, transparent 45%),
+      repeating-linear-gradient(
+        115deg,
+        transparent 0 72px,
+        color-mix(in oklab, var(--twilight) 2%, transparent) 72px 144px
+      ),
+      radial-gradient(ellipse at 80% 12%, color-mix(in oklab, var(--sky) 80%, transparent) 0%, transparent 45%),
+      radial-gradient(ellipse at 18% 88%, color-mix(in oklab, var(--horizon) 7%, transparent) 0%, transparent 40%),
       var(--paper);
   }
 
@@ -230,10 +235,18 @@
     @apply font-sans;
   }
 
+  /* Tournament-poster display type: heavy, condensed, ALWAYS uppercase.
+     Explicit `italic` usages keep their lean (synthetic slant on Anton —
+     reads as a speed skew). */
   .font-display {
-    font-family: var(--font-display), ui-serif, Georgia, serif;
-    font-style: italic;
-    letter-spacing: -0.015em;
+    font-family: var(--font-display), "Arial Narrow", Impact, sans-serif;
+    font-style: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.015em;
+    /* Anton ships one cut: ignore font-weight utilities instead of
+       letting the browser smear a synthetic bold; keep the synthetic
+       italic lean. */
+    font-synthesis-weight: none;
   }
 
   .font-mono,

@@ -19,7 +19,7 @@ export function AtmosphericField() {
         }}
       />
       <div
-        className="ambient-blob absolute -bottom-[20%] -left-[10%] aspect-square w-[70%] rounded-full opacity-25 blur-[150px] dark:opacity-15"
+        className="ambient-blob absolute -bottom-[20%] -left-[10%] aspect-square w-[70%] rounded-full opacity-[0.12] blur-[150px] dark:opacity-15"
         style={{
           background: "var(--horizon)",
           animation: "var(--animate-float-field-rev)",

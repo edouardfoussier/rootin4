@@ -91,11 +91,15 @@ tools in the same agent, same traces.
 
 ## Compliance self-check (from the organizers' email)
 
-- [x] Gemini invoked at runtime (ADK `Runner` → `gemini-2.5-flash`, verified)
+- [x] Gemini invoked at runtime — ADK `Runner` → gemini-2.5-flash **via Vertex AI**
+      on the hosted backend (verified in prod, June 11)
 - [x] Google Cloud Agent Builder: Google ADK agent + Runner, deployed on Cloud Run
-- [x] Arize MCP server invoked at runtime by the agent (Phoenix MCP toolset)
+- [x] Arize MCP server invoked at runtime — prod turn returned
+      `tools_used: ["list-projects"]` with live data from the Phoenix space;
+      traces visible at app.phoenix.arize.com/s/edouardfoussier (project `rootin4`)
 - [x] No competing AI or cloud services (hosting: Cloud Run; model: Gemini only)
 - [x] Repo public + MIT license visible in About
-- [ ] Hosted URL live (fill after deploy, test in incognito)
-- [ ] Video < 3 min, public on YouTube
+- [x] Hosted URL live: https://rootin4-web-282461311841.europe-west1.run.app
+      (full chat turn verified in the hosted app)
+- [ ] Video < 3 min, public on YouTube  ← **the one remaining item (Édouard)**
 - [x] New project, first commit May 17, 2026 (window opened May 5)
