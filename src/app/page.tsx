@@ -3,28 +3,25 @@ import Link from "next/link";
 import { HomeTicketHero } from "@/components/home-ticket-hero";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { getLivePrediction } from "@/lib/live-data";
 import {
   HOST_LABEL,
   MATCHES,
+  ROUND_LABEL,
   formatShortDate,
   getMatchTeams,
   getStadium,
 } from "@/lib/wc2026-data";
 
-/** Three fixtures across host countries to anchor the home page. */
-const TEASER_IDS = [87, 1, 73] as const;
+/** Three knockout riddles — the matches where the ticket question is real:
+ *  an R32 clash of runners-up, the wildcard slot in Kansas City, the final. */
+const TEASER_IDS = [73, 87, 104] as const;
 
 // Teaser probabilities come from the live agent backend — render per
 // request instead of freezing build-time numbers into the static shell.
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  const teasers = TEASER_IDS.map((id) => MATCHES.find((m) => m.id === id)).filter(
-    Boolean
-  ) as (typeof MATCHES)[number][];
-
   return (
     <>
       <SiteHeader />
@@ -39,11 +36,11 @@ export default function Home() {
           </h1>
 
           <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-soft sm:text-xl">
-            Every other World Cup product predicts who wins. Rootin4 predicts
-            who actually walks onto the pitch in front of the seat you already
-            bought.{" "}
+            World Cup tickets are sold by match number, months before the
+            bracket exists. For 32 knockout matches, nobody knows who plays —
+            Rootin4 turns that riddle into probabilities.{" "}
             <span className="font-display italic text-ink">
-              48 teams. 16 stadiums. 104 fixtures. One riddle.
+              48 teams. 16 stadiums. One bracket, simulated 5,000 times.
             </span>
           </p>
 
@@ -52,13 +49,13 @@ export default function Home() {
               href="/schedule"
               className="inline-flex items-center rounded-full bg-twilight px-6 py-3 text-sm font-medium text-paper shadow-md transition hover:opacity-90"
             >
-              Find my fixture →
+              Find my match →
             </Link>
             <Link
-              href="/match/87"
+              href="/agent"
               className="inline-flex items-center rounded-full border border-ink-line bg-paper/60 px-6 py-3 text-sm font-medium text-ink backdrop-blur transition hover:border-horizon hover:text-horizon"
             >
-              See Match #87 in action
+              Ask the agent
             </Link>
             <Link
               href="/about"
@@ -74,20 +71,22 @@ export default function Home() {
           <HomeTicketHero />
         </section>
 
-        {/* Teaser fixtures */}
+        {/* Knockout riddles */}
         <section className="mx-auto w-full max-w-5xl px-6 pb-16">
           <header className="flex items-baseline justify-between border-b border-ink-line pb-3">
-            <h2 className="label-mono text-ink-soft">Teaser fixtures</h2>
+            <h2 className="label-mono text-ink-soft">
+              The riddle matches — nobody knows who plays
+            </h2>
             <Link
               href="/schedule"
               className="label-mono text-ink-soft transition hover:text-horizon"
             >
-              See all 104 →
+              All 104 matches →
             </Link>
           </header>
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {teasers.map((match) => (
-              <TeaserCard key={match.id} matchId={match.id} />
+            {TEASER_IDS.map((id) => (
+              <TeaserCard key={id} matchId={id} />
             ))}
           </div>
         </section>
@@ -108,41 +107,35 @@ async function TeaserCard({ matchId }: { matchId: number }) {
   return (
     <Link
       href={`/match/${match.id}`}
-      className="group rounded-2xl border border-ink-line/70 bg-paper/50 p-5 backdrop-blur transition hover:border-twilight"
+      className="group flex flex-col gap-3 rounded-2xl border border-ink-line/70 bg-paper/50 p-5 backdrop-blur transition hover:-translate-y-0.5 hover:border-twilight hover:shadow-md"
     >
-      <Card className="border-0 bg-transparent p-0 shadow-none">
-        <CardContent className="flex flex-col gap-3 p-0">
-          <div className="flex items-baseline justify-between">
-            <span className="label-mono text-ink-soft">
-              Match #{match.id}
-            </span>
-            <span className="label-mono text-ink-soft">
-              {HOST_LABEL[match.hostCountry]}
-            </span>
-          </div>
-          <p className="font-display text-2xl font-bold leading-tight text-ink">
-            {a.team && b.team
-              ? `${a.team.name} vs ${b.team.name}`
-              : `${a.slot} vs ${b.slot}`}
-          </p>
-          <p className="text-sm text-ink-soft">
-            {stadium.name} · {stadium.city}
-          </p>
-          <p className="label-mono text-ink-soft">
-            {formatShortDate(match.date)}
-          </p>
-          {leader && (
-            <p className="mt-2 inline-flex items-baseline gap-2 self-start rounded-full bg-twilight/10 px-3 py-1 text-twilight">
-              <span className="font-mono text-xs tabular-nums">
-                {Math.round(leader.probability * 100)}%
-              </span>
-              <span className="font-display text-xs italic">
-                {leader.team.name}
-              </span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="label-mono text-ink-soft">Match #{match.id}</span>
+        <span className="label-mono text-ink-soft">
+          {ROUND_LABEL[match.round]}
+        </span>
+      </div>
+      <p className="font-display text-2xl leading-tight text-ink">
+        {a.team && b.team
+          ? `${a.team.name} vs ${b.team.name}`
+          : `${a.slot} vs ${b.slot}`}
+      </p>
+      <p className="text-sm text-ink-soft">
+        {stadium.name} · {stadium.city}
+      </p>
+      <p className="label-mono text-ink-soft">
+        {formatShortDate(match.date)} · {HOST_LABEL[match.hostCountry]}
+      </p>
+      {leader && leader.probability < 0.999 && (
+        <p className="mt-1 inline-flex items-baseline gap-2 self-start rounded-full bg-twilight/10 px-3 py-1 text-twilight">
+          <span className="font-mono text-xs tabular-nums">
+            {Math.round(leader.probability * 100)}%
+          </span>
+          <span className="font-display text-xs italic">
+            {leader.team.name}
+          </span>
+        </p>
+      )}
     </Link>
   );
 }

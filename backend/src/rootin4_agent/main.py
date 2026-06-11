@@ -21,7 +21,6 @@ import logging
 import threading
 import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -33,7 +32,14 @@ from pydantic import BaseModel
 from .instrumentation import setup_observability
 from .settings import get_settings
 from .tools.health import health
-from .tools.monte_carlo import get_aggregate, get_priors_log
+from .tools.monte_carlo import (
+    get_activity,
+    get_aggregate,
+    get_aggregate_timestamp,
+    get_engine_stats,
+    get_priors_log,
+    log_activity,
+)
 from .tournament.state import load_default_state
 
 # ADK's Gemini client reads GOOGLE_API_KEY / GOOGLE_GENAI_USE_VERTEXAI
@@ -157,6 +163,10 @@ async def invoke_agent(request: AgentRequest) -> AgentResponse:
         if event.is_final_response() and event.content and event.content.parts:
             output_parts.extend(p.text for p in event.content.parts if p.text)
 
+    log_activity(
+        f"Gemini turn completed — tools: {', '.join(tools_used) or 'none'}",
+        kind="agent",
+    )
     return AgentResponse(
         output="".join(output_parts).strip(),
         session_id=session_id,
@@ -236,6 +246,12 @@ def prediction(match_id: int) -> dict[str, Any]:
     fx = agg.fixtures[match_id]
     n = fx.n_samples
 
+    # Full-time outcome split — the interesting number for group games,
+    # where the participants themselves are already locked.
+    home_wins = sum(c for (ga, gb), c in fx.score_dist.items() if ga > gb)
+    away_wins = sum(c for (ga, gb), c in fx.score_dist.items() if ga < gb)
+    draws = n - home_wins - away_wins
+
     team_probabilities = [
         {"team": _team_payload(code), "probability": p}
         for code, p in list(fx.team_probs.items())[:8]
@@ -244,21 +260,28 @@ def prediction(match_id: int) -> dict[str, Any]:
         {
             "teamA": _team_payload(a),
             "teamB": _team_payload(b),
+            # The percentage already sits next to the row — no duplicate copy.
+            "flavor": "",
             "probability": p,
-            "flavor": f"Seen in {p:.0%} of {n:,} simulated tournaments.",
         }
         for (a, b), p in list(fx.pair_probs.items())[:5]
     ]
     return {
         "matchId": match_id,
         "iterations": n,
-        "lastUpdatedIso": datetime.now(UTC).isoformat(),
+        # Honest freshness: when the aggregate was computed, not "now".
+        "lastUpdatedIso": get_aggregate_timestamp(),
         "teamProbabilities": team_probabilities,
         "pairProbabilities": pair_probabilities,
         "mostLikelyScores": [
             {"score": f"{ga}-{gb}", "probability": c / n}
             for (ga, gb), c in fx.score_dist.most_common(5)
         ],
+        "outcomeProbabilities": {
+            "home": home_wins / n,
+            "draw": draws / n,
+            "away": away_wins / n,
+        },
         "penaltyShootoutRate": fx.penalties_rate,
         "news": [],
     }
@@ -292,6 +315,12 @@ def champions() -> dict[str, Any]:
 def priors() -> dict[str, Any]:
     """Self-correction log — what the agent changed and why."""
     return {"corrections": get_priors_log()}
+
+
+@app.get("/api/activity")
+def activity() -> dict[str, Any]:
+    """Real engine/agent events + cumulative counters (nothing staged)."""
+    return {"events": get_activity(), "stats": get_engine_stats()}
 
 
 def run() -> None:

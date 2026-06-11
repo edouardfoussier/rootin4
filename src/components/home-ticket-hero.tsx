@@ -26,7 +26,7 @@ export function HomeTicketHero() {
                 You haven&apos;t marked your ticket yet.
               </p>
               <p className="text-sm text-ink-soft">
-                Find the fixture you bought a seat for, mark it, and Rootin4
+                Find the match you bought a seat for, mark it, and Rootin4
                 pins the prediction to every page you visit.
               </p>
             </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { AgentConsole } from "@/components/agent-console";
 import { AgentSidebar } from "@/components/agent-sidebar";
@@ -47,7 +48,9 @@ export default function AgentPage() {
           </section>
 
           <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_20rem]">
-            <AgentConsole />
+            <Suspense fallback={null}>
+              <AgentConsole />
+            </Suspense>
             <AgentSidebar />
           </div>
         </div>

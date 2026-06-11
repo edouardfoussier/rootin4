@@ -33,7 +33,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Rootin4 — Know who's really playing at your seat",
   description:
-    "A weather forecast for the seat you bought. Calibrated probabilities for every fixture of the 2026 FIFA World Cup, plus an agent that grades and corrects itself.",
+    "A weather forecast for the seat you bought. Calibrated probabilities for every match of the 2026 FIFA World Cup, plus an agent that corrects itself.",
 };
 
 export default function RootLayout({

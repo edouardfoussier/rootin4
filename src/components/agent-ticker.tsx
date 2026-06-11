@@ -1,18 +1,61 @@
 "use client";
 
-import { useLiveSimulation } from "@/lib/use-live-simulation";
+import { useCallback, useEffect, useState } from "react";
+
+type ActivityEvent = { ts: string; kind: string; text: string };
+type EngineStats = {
+  tournaments_simulated: number;
+  active_corrections: number;
+  default_sample_size: number;
+};
+
+const POLL_MS = 12_000;
+const ROTATE_MS = 6_000;
 
 /**
- * Fixed-bottom strip rendering the agent's pulse.
- *
- * On mobile we hide the right-hand stats so the line of log copy keeps room
- * to breathe. The ticker honours iOS / Android safe areas via
- * `env(safe-area-inset-bottom)` so it doesn't collide with the home indicator.
+ * Fixed-bottom strip showing REAL engine/agent events from the backend
+ * (`/api/activity`): actual Monte Carlo runs, actual agent tool calls,
+ * actual prior corrections. Nothing synthesized — if the backend is
+ * unreachable the strip simply doesn't render.
  */
 export function AgentTicker() {
-  const { latestLog, driftPct, simsPerHour } = useLiveSimulation();
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [stats, setStats] = useState<EngineStats | null>(null);
+  const [cursor, setCursor] = useState(0);
 
-  if (!latestLog) return null;
+  const refresh = useCallback(() => {
+    fetch("/api/activity")
+      .then((r) => r.json())
+      .then((d) => {
+        setEvents(d.events ?? []);
+        setStats(d.stats ?? null);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const poll = setInterval(refresh, POLL_MS);
+    window.addEventListener("rootin4:agent-turn-done", refresh);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener("rootin4:agent-turn-done", refresh);
+    };
+  }, [refresh]);
+
+  // Rotate through the recent real events so the strip stays alive
+  // without inventing anything.
+  useEffect(() => {
+    if (events.length < 2) return;
+    const id = setInterval(
+      () => setCursor((c) => (c + 1) % Math.min(events.length, 8)),
+      ROTATE_MS
+    );
+    return () => clearInterval(id);
+  }, [events.length]);
+
+  if (events.length === 0) return null;
+  const current = events[Math.min(cursor, events.length - 1)];
 
   return (
     <div
@@ -23,27 +66,29 @@ export function AgentTicker() {
       <div className="flex min-w-0 items-center gap-3 sm:gap-5">
         <span className="pulse-dot shrink-0" />
         <span className="label-mono shrink-0 text-ink-soft">
-          Agent activity
+          Engine log
         </span>
         <span
-          key={latestLog.id}
-          className="truncate font-mono text-ink animate-text-reveal"
+          key={current.ts + current.text}
+          className="truncate font-mono text-ink"
           style={{ animation: "var(--animate-ticker-rise)" }}
         >
-          {latestLog.text}
+          {current.text}
         </span>
       </div>
 
-      <div className="ml-auto hidden shrink-0 items-center gap-6 sm:flex">
-        <Stat
-          label="Model drift"
-          value={`${driftPct >= 0 ? "+" : ""}${driftPct.toFixed(2)}%`}
-        />
-        <Stat
-          label="Simulations"
-          value={`${simsPerHour.toLocaleString()}/hr`}
-        />
-      </div>
+      {stats && (
+        <div className="ml-auto hidden shrink-0 items-center gap-6 sm:flex">
+          <Stat
+            label="Tournaments simulated"
+            value={stats.tournaments_simulated.toLocaleString()}
+          />
+          <Stat
+            label="Self-corrections"
+            value={String(stats.active_corrections)}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useMyTicket } from "@/lib/use-my-ticket";
 
 type AgentMessage = {
   id: string;
@@ -10,7 +13,7 @@ type AgentMessage = {
   error?: boolean;
 };
 
-const SUGGESTED_PROMPTS = [
+const DEFAULT_PROMPTS = [
   "I have a ticket for match 87 — who will I actually see play?",
   "Which matches will France most likely play in?",
   "Run the tournament. Who lifts the trophy?",
@@ -95,6 +98,25 @@ export function AgentConsole() {
   const sessionRef = useRef<string | null>(null);
   const sourceRef = useRef<EventSource | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // "Ask the agent about this match →" hands the question over via ?q=.
+  // Render-phase state adjustment — React's sanctioned prop-sync pattern.
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q");
+  const [prevQ, setPrevQ] = useState<string | null>(null);
+  if (q && q !== prevQ) {
+    setPrevQ(q);
+    setInput(q);
+  }
+
+  // If the visitor marked their ticket, speak to *their* match first.
+  const { ticket } = useMyTicket();
+  const suggestedPrompts = ticket
+    ? [
+        `I have a ticket for match ${ticket.matchId} — who will I actually see play?`,
+        ...DEFAULT_PROMPTS.slice(1),
+      ]
+    : DEFAULT_PROMPTS;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -202,11 +224,11 @@ export function AgentConsole() {
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-start justify-center gap-5">
             <p className="max-w-md font-display text-2xl italic leading-snug text-ink">
-              Ask about any of the 104 fixtures — or ask the agent to audit
+              Ask about any of the 104 matches — or ask the agent to audit
               itself.
             </p>
             <div className="flex flex-col items-start gap-2">
-              {SUGGESTED_PROMPTS.map((p) => (
+              {suggestedPrompts.map((p) => (
                 <button
                   key={p}
                   type="button"

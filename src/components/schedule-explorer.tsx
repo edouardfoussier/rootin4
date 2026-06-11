@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +27,87 @@ type GroupBy = "date" | "round" | "stadium";
 const ROUND_OPTIONS: Round[] = ["group", "r32", "r16", "qf", "sf", "tp", "final"];
 const HOST_OPTIONS: HostCountry[] = ["USA", "CAN", "MEX"];
 
+/** Which group letters can feed each knockout match, following the
+ *  schedule's own slot descriptors ("Winner Group K", "3rd Group D/E/I/J/L")
+ *  and "Winner/Loser Match N" chains recursively to the final. */
+const CANDIDATE_GROUPS: Map<number, Set<string>> = (() => {
+  const byId = new Map(MATCHES.map((m) => [m.id, m]));
+  const memo = new Map<number, Set<string>>();
+
+  const slotGroups = (slot: string): string[] => {
+    const g = slot.match(/Group ([A-L](?:\/[A-L])*)/);
+    return g ? g[1].split("/") : [];
+  };
+
+  const resolve = (id: number): Set<string> => {
+    const cached = memo.get(id);
+    if (cached) return cached;
+    const match = byId.get(id);
+    const out = new Set<string>();
+    memo.set(id, out); // guards against cycles (schedule has none)
+    if (!match) return out;
+    if (match.round === "group") {
+      if (match.group) out.add(match.group);
+      return out;
+    }
+    for (const slot of [match.slotA, match.slotB]) {
+      if (!slot) continue;
+      for (const letter of slotGroups(slot)) out.add(letter);
+      const feeder = slot.match(/(?:Winner|Loser) Match (\d+)/);
+      if (feeder) {
+        for (const letter of resolve(Number(feeder[1]))) out.add(letter);
+      }
+    }
+    return out;
+  };
+
+  for (const m of MATCHES) resolve(m.id);
+  return memo;
+})();
+
+/** Tickets are sold by match number — let people type theirs directly. */
+function MatchJump() {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+  const id = Number(value);
+  const valid = Number.isInteger(id) && id >= 1 && id <= 104;
+
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) router.push(`/match/${id}`);
+      }}
+    >
+      <label className="label-mono text-ink-soft" htmlFor="match-jump">
+        My ticket says match #
+      </label>
+      <input
+        id="match-jump"
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 3))}
+        inputMode="numeric"
+        placeholder="87"
+        className="w-16 rounded-full border border-ink-line bg-paper/60 px-3 py-2 text-center font-mono text-sm text-ink outline-none transition focus:border-twilight"
+      />
+      <button
+        type="submit"
+        disabled={!valid}
+        className="rounded-full bg-twilight px-4 py-2 text-sm font-medium text-paper transition hover:opacity-90 disabled:opacity-40"
+      >
+        Go
+      </button>
+    </form>
+  );
+}
+
 export function ScheduleExplorer() {
   const [groupBy, setGroupBy] = useState<GroupBy>("date");
   const [hostFilter, setHostFilter] = useState<HostCountry | "ALL">("ALL");
   const [roundFilter, setRoundFilter] = useState<Round | "ALL">("ALL");
   const [teamFilter, setTeamFilter] = useState<string>("");
+  const [riddlesOnly, setRiddlesOnly] = useState(false);
   const { ticket } = useMyTicket();
 
   const teams = useMemo(() => {
@@ -39,20 +116,25 @@ export function ScheduleExplorer() {
 
   const filteredMatches = useMemo(() => {
     const teamCode = teamFilter || null;
+    const team = teamCode ? TEAMS[teamCode as keyof typeof TEAMS] : null;
     return MATCHES.filter((m) => {
+      if (riddlesOnly && m.round === "group") return false;
       if (hostFilter !== "ALL" && m.hostCountry !== hostFilter) return false;
       if (roundFilter !== "ALL" && m.round !== roundFilter) return false;
       if (teamCode) {
         const matchesTeam =
           m.teamA === teamCode ||
           m.teamB === teamCode ||
-          (m.slotA?.includes(`Group ${TEAMS[teamCode as keyof typeof TEAMS]?.group ?? ""}`) ?? false) ||
-          (m.slotB?.includes(`Group ${TEAMS[teamCode as keyof typeof TEAMS]?.group ?? ""}`) ?? false);
+          // Knockout slots: every match this team's group can feed into,
+          // following "Winner Match N" chains all the way to the final.
+          (m.round !== "group" &&
+            !!team &&
+            (CANDIDATE_GROUPS.get(m.id)?.has(team.group) ?? false));
         if (!matchesTeam) return false;
       }
       return true;
     });
-  }, [hostFilter, roundFilter, teamFilter]);
+  }, [hostFilter, roundFilter, teamFilter, riddlesOnly]);
 
   const grouped = useMemo(() => groupMatches(filteredMatches, groupBy), [
     filteredMatches,
@@ -61,6 +143,21 @@ export function ScheduleExplorer() {
 
   return (
     <div className="flex flex-col gap-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setRiddlesOnly((v) => !v)}
+          aria-pressed={riddlesOnly}
+          className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+            riddlesOnly
+              ? "border-twilight bg-twilight text-paper"
+              : "border-ink-line bg-paper/60 text-ink hover:border-twilight hover:text-twilight"
+          }`}
+        >
+          🧩 Knockout riddles — nobody knows who plays
+        </button>
+        <MatchJump />
+      </div>
       <FilterBar
         groupBy={groupBy}
         setGroupBy={setGroupBy}
@@ -316,7 +413,7 @@ function EmptyState() {
   return (
     <Card className="border-dashed border-border/80 bg-card">
       <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-        <p className="font-display text-xl font-medium">No fixtures match these filters.</p>
+        <p className="font-display text-xl font-medium">No matches fit these filters.</p>
         <p className="text-sm text-muted-foreground">
           Try widening the host, round, or team — or reset to see all 104.
         </p>
@@ -390,5 +487,5 @@ function bucketLabel(
 
 function countMatchesByRound(r: Round): string {
   const total = MATCHES.filter((m) => m.round === r).length;
-  return `${total} fixture${total === 1 ? "" : "s"}`;
+  return `${total} match${total === 1 ? "" : "es"}`;
 }

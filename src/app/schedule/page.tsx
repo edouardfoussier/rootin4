@@ -6,7 +6,7 @@ import { MATCHES, STADIUMS } from "@/lib/wc2026-data";
 export const metadata = {
   title: "Schedule · Rootin4",
   description:
-    "All 104 fixtures of the 2026 FIFA World Cup. Filter by date, round, host country, or team — then mark the one you bought a ticket for.",
+    "All 104 matches of the 2026 FIFA World Cup. Filter by date, round, host country, or team — then mark the one you bought a ticket for.",
 };
 
 export default function SchedulePage() {

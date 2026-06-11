@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections import deque
 from dataclasses import replace
+from datetime import UTC, datetime
 
 from ..tournament.aggregate import TournamentAggregate, run
 from ..tournament.state import TournamentState, load_default_state
@@ -27,6 +29,34 @@ _lock = threading.Lock()
 _elo_overrides: dict[str, float] = {}
 _priors_log: list[dict] = []
 _cache: dict[tuple, TournamentAggregate] = {}
+_cache_ts: dict[tuple, str] = {}  # real computation time per aggregate
+
+# Real activity feed for the UI ticker — every entry corresponds to an
+# actual engine run, agent tool call, or prior correction. Nothing here
+# is synthesized for show.
+_activity: deque[dict] = deque(maxlen=50)
+_total_tournaments = 0
+
+
+def log_activity(text: str, kind: str = "engine") -> None:
+    """Record a real event for the public activity feed."""
+    _activity.append(
+        {"ts": datetime.now(UTC).isoformat(), "kind": kind, "text": text}
+    )
+
+
+def get_activity() -> list[dict]:
+    """Newest-first snapshot of real engine/agent events."""
+    return list(_activity)[::-1]
+
+
+def get_engine_stats() -> dict:
+    """Real cumulative counters since this instance booted."""
+    return {
+        "tournaments_simulated": _total_tournaments,
+        "active_corrections": len(_priors_log),
+        "default_sample_size": DEFAULT_N_SAMPLES,
+    }
 
 
 def _current_state() -> TournamentState:
@@ -43,13 +73,35 @@ def get_aggregate(
     n_samples: int = DEFAULT_N_SAMPLES, seed: int = DEFAULT_SEED
 ) -> TournamentAggregate:
     """Cached aggregate for the current priors overlay (REST + tools)."""
+    global _total_tournaments
     with _lock:
         key = (n_samples, seed, tuple(sorted(_elo_overrides.items())))
         if key not in _cache:
             _cache[key] = run(_current_state(), n_samples=n_samples, seed=seed)
+            _cache_ts[key] = datetime.now(UTC).isoformat()
             if len(_cache) > 8:  # keep the hot entries, drop the oldest
-                _cache.pop(next(iter(_cache)))
+                dropped = next(iter(_cache))
+                _cache.pop(dropped)
+                _cache_ts.pop(dropped, None)
+            _total_tournaments += n_samples
+            corrections = (
+                f" with {len(_elo_overrides)} Elo correction(s) applied"
+                if _elo_overrides
+                else ""
+            )
+            log_activity(
+                f"Engine run: {n_samples:,} full tournaments simulated{corrections}"
+            )
         return _cache[key]
+
+
+def get_aggregate_timestamp(
+    n_samples: int = DEFAULT_N_SAMPLES, seed: int = DEFAULT_SEED
+) -> str:
+    """When the served aggregate was actually computed (honest freshness)."""
+    get_aggregate(n_samples, seed)  # ensure it exists
+    key = (n_samples, seed, tuple(sorted(_elo_overrides.items())))
+    return _cache_ts.get(key, datetime.now(UTC).isoformat())
 
 
 def _team_label(code: str) -> str:
@@ -110,6 +162,11 @@ def match_team_probabilities(match_id: int) -> dict:
         return {"error": f"match_id must be 1-104, got {match_id}"}
 
     agg = get_aggregate()
+    log_activity(
+        f"Agent queried match {fixture.id} ({fixture.round}) — "
+        f"probabilities from the {agg.n_samples:,}-run aggregate",
+        kind="tool",
+    )
     fx = agg.fixtures[fixture.id]
     slot_a = fixture.team_a or fixture.slot_a
     slot_b = fixture.team_b or fixture.slot_b
@@ -236,6 +293,10 @@ def update_priors(team_code: str, elo_delta: float, reason: str) -> dict:
             {"team": code, "delta": delta, "reason": reason}
         )
         _cache.clear()  # next aggregate reflects the corrected priors
+    log_activity(
+        f"Self-correction: {code} {delta:+.0f} Elo — {reason[:90]}",
+        kind="correction",
+    )
     logger.info("priors updated: %s %+0.1f (%s)", code, delta, reason)
     return {
         "team": _team_label(code),

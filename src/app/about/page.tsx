@@ -39,23 +39,24 @@ export default function AboutPage() {
             Rootin4 is a weather forecast for that riddle. Not betting odds,
             not a fantasy bracket, not a countdown clock. A calm,
             continuously-updating probability per team and per pairing for
-            each fixture, with a single plain-language answer to the only
+            each match, with a single plain-language answer to the only
             question that actually matters: should I get on the plane?
           </Body>
 
           <Body>
             Behind the surface is an agent built on Google&apos;s Agent
-            Development Kit and Gemini 2.5. <em className="font-display">In
-            the version you&apos;re reading this on, the engine is still
-            warming up.</em> When the Monte Carlo loop lands, the agent will
-            simulate the rest of the tournament thousands of times an hour.
-            When the news pipeline lands, it&apos;ll ingest match-window
-            reports and adjust priors when a starter is ruled out or a
-            qualification ban is overturned. After every completed match, the
-            agent will grade its own prediction, look for the bias that
-            caused it to miss, and correct itself before the next round. The
-            model is designed to get better the deeper the tournament goes —
-            exactly when it matters most.
+            Development Kit and Gemini 2.5.{" "}
+            <em className="font-display">
+              Every number on this site is computed live
+            </em>{" "}
+            by a Monte Carlo engine that replays the entire tournament —
+            all 104 matches, FIFA tiebreakers, the third-place wildcard
+            allocation, penalty shootouts — thousands of times per question.
+            Every Gemini call and every tool call is traced to Arize Phoenix,
+            and the agent can read those traces back: ask it to audit itself
+            and, when the evidence shows a systematic bias, it corrects its
+            own Elo priors on the spot. The model is designed to get better
+            the deeper the tournament goes — exactly when it matters most.
           </Body>
 
           <Body>

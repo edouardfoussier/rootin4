@@ -25,7 +25,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-4 sm:gap-6">
           <HeaderTicketChip />
-          <nav className="hidden items-center gap-6 sm:flex">
+          <nav className="flex items-center gap-3 sm:gap-6">
             <Link
               href="/agent"
               className="label-mono text-twilight transition hover:text-ink"
@@ -37,12 +37,6 @@ export function SiteHeader() {
               className="label-mono text-ink-soft transition hover:text-ink"
             >
               Schedule
-            </Link>
-            <Link
-              href="/match/87"
-              className="label-mono text-ink-soft transition hover:text-ink"
-            >
-              Match 87
             </Link>
             <Link
               href="/about"
