@@ -158,6 +158,106 @@ def list_match_results() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Autonomous sync — wire-fed tools for the ops agent
+# ---------------------------------------------------------------------------
+
+
+def check_score_wire() -> dict:
+    """Check the live score wire for today's (and yesterday's) World Cup
+    matches and how they map onto the 104 scheduled fixtures.
+
+    Returns one entry per wire event: teams, current score, status, and
+    `recordable` — true only when the match is COMPLETED and safely
+    matched to exactly one unrecorded fixture (`match_id`). In-progress
+    or unmatched events are listed for awareness but cannot be recorded.
+
+    Returns:
+        Wire events plus counts of completed/recordable matches.
+    """
+    from .score_wire import fetch_wire_events
+
+    results = get_recorded_results()
+    events = fetch_wire_events(results)
+    payload = [
+        {
+            "fixture_match_id": ev.match_id,
+            "teams": f"{ev.name_a} vs {ev.name_b}",
+            "score": f"{ev.goals_a}-{ev.goals_b}",
+            "status": ev.status,
+            "completed": ev.completed,
+            "recordable": bool(ev.completed and ev.match_id),
+            "note": ev.note,
+        }
+        for ev in events
+    ]
+    return {
+        "events": payload,
+        "completed_count": sum(1 for e in payload if e["completed"]),
+        "recordable_count": sum(1 for e in payload if e["recordable"]),
+        "already_recorded": len(results),
+    }
+
+
+def record_wire_result(match_id: int) -> dict:
+    """Record the final score of a completed match, straight from the wire.
+
+    The score is taken from the live wire — you choose WHICH fixture to
+    record, never the numbers. Fails if the wire doesn't show that
+    fixture as completed, or if it's already recorded.
+
+    Args:
+        match_id: FIFA match number (1-104) flagged `recordable` by
+            `check_score_wire`.
+
+    Returns:
+        The recorded result and the championship-odds move for both
+        teams, or an error explaining why nothing was recorded.
+    """
+    from .score_wire import fetch_wire_events
+
+    results = get_recorded_results()
+    if int(match_id) in results:
+        return {"error": f"match {match_id} is already recorded"}
+    ev = next(
+        (
+            e
+            for e in fetch_wire_events(results)
+            if e.match_id == int(match_id) and e.completed
+        ),
+        None,
+    )
+    if ev is None:
+        return {
+            "error": (
+                f"the wire shows no completed, unrecorded match for fixture "
+                f"{match_id} — check check_score_wire output"
+            )
+        }
+    # Align goals to OUR fixture's team order — the wire's home side is
+    # not guaranteed to be the schedule's team_a (group fixtures take
+    # their team order from the schedule, so a swapped score would
+    # silently credit the wrong side).
+    fixture = load_default_state().fixtures[ev.match_id]
+    team_a, team_b = ev.team_a, ev.team_b
+    goals_a, goals_b = ev.goals_a, ev.goals_b
+    if fixture.round == "group" and fixture.team_a == ev.team_b:
+        team_a, team_b = ev.team_b, ev.team_a
+        goals_a, goals_b = ev.goals_b, ev.goals_a
+    out = record_result(
+        ev.match_id,
+        goals_a,
+        goals_b,
+        winner=ev.shootout_winner,
+        team_a=team_a,
+        team_b=team_b,
+    )
+    log_activity(
+        f"Auto-sync recorded {out['label']} from the live wire", kind="sync"
+    )
+    return out
+
+
+# ---------------------------------------------------------------------------
 # History slices for the UI sparklines
 # ---------------------------------------------------------------------------
 

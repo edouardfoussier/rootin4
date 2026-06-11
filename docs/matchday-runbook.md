@@ -1,8 +1,15 @@
 # Matchday runbook — recording real results
 
-The engine only knows what you tell it. After each final whistle, record
-the score; everything else (locked sims, Elo updates, history snapshot,
-sparklines, activity ticker, agent answers) follows automatically.
+**The system is autonomous.** A Cloud Scheduler job (`rootin4-sync`,
+hourly 17:00–07:00 UTC) wakes the ops agent, which reads the public
+score wire, records every completed match (scores come from the wire —
+the agent only chooses which fixtures to commit), and a deterministic
+fallback re-checks behind it. Idempotent, so every hour is also a
+retry. You should never *need* this runbook — it exists for the day the
+wire is wrong or down.
+
+Audit trail: `GET /api/results`, the activity ticker (kind `sync`), and
+the ops-agent traces in Phoenix. Manual override below.
 
 ## Tonight — June 11
 

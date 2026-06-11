@@ -22,7 +22,11 @@ from .tools.monte_carlo import (
     update_priors,
 )
 from .tools.phoenix_introspection import phoenix_calibration_report
-from .tools.results_service import list_match_results
+from .tools.results_service import (
+    check_score_wire,
+    list_match_results,
+    record_wire_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +114,38 @@ def _phoenix_mcp_toolset():
     except Exception as exc:  # pragma: no cover — defensive, never crash boot
         logger.warning("Phoenix MCP toolset unavailable: %s", exc)
         return None
+
+
+OPS_PROMPT = """You are Rootin4's autonomous results clerk, woken on a schedule
+during World Cup 2026 matchdays. You have no human in the loop.
+
+Protocol, in order:
+1. `check_score_wire` — see today's real matches and their wire status.
+2. For EVERY event flagged `recordable: true`, call
+   `record_wire_result(match_id)`. The score comes from the wire, not
+   from you; you only decide which completed fixtures to commit.
+3. If nothing is recordable, say so and stop — never force a result.
+4. After recording, summarise in 2-3 sentences what changed: final
+   score(s) and the championship-odds moves the tool reported.
+
+Discipline: never invent a score, never record an in-progress match,
+never call `record_wire_result` for a fixture the wire didn't flag.
+In-progress matches are simply reported as "still playing".
+"""
+
+
+@lru_cache(maxsize=1)
+def build_ops_agent():
+    """The autonomous sync agent — wire reads, guarded writes, no chat."""
+    from google.adk.agents import Agent
+
+    return Agent(
+        name="rootin4_ops",
+        model=get_settings().rootin4_model,
+        description="Autonomous clerk that records real results from the wire.",
+        instruction=OPS_PROMPT,
+        tools=[check_score_wire, record_wire_result, list_match_results],
+    )
 
 
 @lru_cache(maxsize=1)

@@ -87,19 +87,29 @@ FIFA match numbers and knockout slot descriptors) live in one dataset,
 `src/lib/wc2026-data.ts`, mirrored to the backend as `data.json` — the
 TS UI and the Python sim can never disagree about a structural fact.
 
-### Live recalibration on real results
+### Autonomous live recalibration
 
-Once the tournament starts, the operator records each final score
-(`backend/scripts/record-result.sh`, token-protected `POST
-/api/admin/results`). A recorded result conditions every simulation two
-ways: the played match is locked to its actual score, and both teams'
-Elo ratings get the standard K-factor update before the remaining
-fixtures are sampled. Each real event (baseline, result, agent
-self-correction) appends a probability snapshot to a GCS-backed history
-(`GET /api/history/champions`, `GET /api/history/match/{id}`) — the
-Polymarket-style sparklines on every match page read straight from it.
-The agent sees the same reality through its `list_match_results` tool;
-it never invents scores and cannot write them.
+The system updates itself — no human in the loop. On matchdays a Cloud
+Scheduler job (hourly, 17:00–07:00 UTC) hits `/internal/sync-results`:
+a dedicated **ops agent** (Gemini on ADK, fully traced in Phoenix)
+reads the public score wire via `check_score_wire`, then commits each
+completed match with `record_wire_result` — the score always comes from
+the wire and is validated against the fixture list, so the model
+chooses *which* fixture to record but can never invent numbers. A
+deterministic fallback sweeps behind the agent, and the hourly cadence
+doubles as the retry loop (the pass is idempotent). Knockout pairings
+are matched by resolving the *real* bracket from recorded results.
+
+A recorded result conditions every simulation two ways: the played
+match is locked to its actual score, and both teams' Elo ratings get
+the standard K-factor update before the remaining fixtures are sampled.
+Each real event (baseline, result, correction) appends a probability
+snapshot to a GCS-backed history (`GET /api/history/champions`, `GET
+/api/history/match/{id}`) — the Polymarket-style sparklines on every
+match page read straight from it. The public chat agent sees the same
+reality through `list_match_results`; it has no write access. Manual
+override for emergencies: `backend/scripts/record-result.sh`
+(token-protected `POST /api/admin/results`).
 
 ## Repo layout
 

@@ -48,6 +48,7 @@ from .tools.results_service import (
     list_match_results,
     match_history,
     record_result,
+    record_wire_result,
 )
 from .tournament.state import load_default_state
 
@@ -426,6 +427,116 @@ def history_match(match_id: int) -> dict[str, Any]:
         return match_history(match_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Autonomous sync — Cloud Scheduler wakes the ops agent after each match
+# ---------------------------------------------------------------------------
+
+_ops_runner = None
+
+
+async def _get_ops_runner():
+    global _ops_runner
+    async with _runner_lock:
+        if _ops_runner is None:
+            from google.adk.runners import Runner
+            from google.adk.sessions import InMemorySessionService
+
+            from .agent import build_ops_agent
+
+            _ops_runner = Runner(
+                app_name=f"{APP_NAME}-ops",
+                agent=build_ops_agent(),
+                session_service=InMemorySessionService(),
+                auto_create_session=True,
+            )
+    return _ops_runner
+
+
+@app.post("/internal/sync-results", dependencies=[Depends(_require_admin)])
+async def sync_results() -> dict[str, Any]:
+    """One autonomous sync pass: wire check → ops-agent records → fallback.
+
+    Idempotent (recorded fixtures are skipped), so the hourly schedule
+    doubles as the retry loop. The Gemini turn is the primary writer and
+    is fully traced in Phoenix; a deterministic fallback re-checks the
+    wire afterwards so a missed tool call can't lose a result.
+    """
+    from .tools.score_wire import fetch_wire_events
+
+    before = get_recorded_results()
+    try:
+        events = fetch_wire_events(before)
+    except Exception as exc:  # network/wire failure → let Scheduler retry
+        logger.exception("score wire unreachable")
+        raise HTTPException(status_code=502, detail=f"score wire: {exc}") from exc
+
+    wire_summary = [
+        {
+            "teams": f"{ev.name_a} vs {ev.name_b}",
+            "score": f"{ev.goals_a}-{ev.goals_b}",
+            "status": ev.status,
+            "match_id": ev.match_id,
+            "recordable": bool(ev.completed and ev.match_id),
+            "note": ev.note,
+        }
+        for ev in events
+    ]
+    recordable = [ev for ev in events if ev.completed and ev.match_id]
+    if not recordable:
+        log_activity(
+            f"Auto-sync: wire checked, {len(events)} event(s), nothing to record",
+            kind="sync",
+        )
+        return {"recorded": [], "agent_ran": False, "wire": wire_summary}
+
+    # Primary path: the ops agent reads the wire and commits the results
+    # (each tool call lands in Phoenix). Any failure here is non-fatal —
+    # the deterministic sweep below still records what the wire shows.
+    agent_output, agent_tools = "", []
+    try:
+        runner = await _get_ops_runner()
+        async for event in runner.run_async(
+            user_id="scheduler",
+            session_id=f"sync-{uuid.uuid4().hex[:10]}",
+            new_message=_user_content(
+                "Scheduled sync: check the wire and record every completed, "
+                "recordable match, then summarise the moves."
+            ),
+        ):
+            for call in event.get_function_calls():
+                agent_tools.append(call.name)
+            if event.is_final_response() and event.content and event.content.parts:
+                agent_output = "".join(
+                    p.text or "" for p in event.content.parts
+                ).strip()
+    except Exception:
+        logger.exception("ops agent turn failed; deterministic fallback only")
+
+    # Belt-and-braces: anything still unrecorded gets written by code.
+    fallback_recorded = []
+    after_agent = get_recorded_results()
+    for ev in recordable:
+        if ev.match_id not in after_agent:
+            out = record_wire_result(ev.match_id)
+            if "error" not in out:
+                fallback_recorded.append(out["label"])
+                log_activity(
+                    f"Auto-sync fallback recorded {out['label']}", kind="sync"
+                )
+
+    recorded_now = [
+        mid for mid in get_recorded_results() if mid not in before
+    ]
+    return {
+        "recorded": sorted(recorded_now),
+        "agent_ran": True,
+        "agent_tools": agent_tools,
+        "agent_summary": agent_output,
+        "fallback_recorded": fallback_recorded,
+        "wire": wire_summary,
+    }
 
 
 def run() -> None:
