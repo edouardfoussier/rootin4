@@ -58,15 +58,52 @@ def build_predictions(
         - Penalties: always False
     Knockout (probabilistic pairings):
         - Pick the modal `(team_a, team_b)` from `aggregate.pair_probs`
-        - Use that pair's modal score
+        - Use the fixture's modal score (the aggregate doesn't keep
+          pair-conditioned score distributions; identity and scoreline
+          are only weakly coupled at this calibration level)
         - Winner: team with more goals; if tied, pick the team whose
           marginal `team_probs` is higher (proxy for "more likely to
           progress past this round across our sims")
-        - Penalties: `aggregate.penalties_rate >= 0.5`
+        - Penalties: a tied predicted score in knockout *is* a penalty
+          prediction by definition (or an outsized penalties_rate)
     """
-    raise NotImplementedError(
-        "Implement in W2 once we have a working aggregate.run()."
-    )
+    predictions: list[DataCampPrediction] = []
+    for match_id in sorted(aggregate.fixtures):
+        fx = aggregate.fixtures[match_id]
+        team_a, team_b = fx.modal_pair()
+        goals_a, goals_b = fx.modal_score()
+        is_group = fx.penalties_rate == 0.0 and match_id <= 72
+
+        if goals_a > goals_b:
+            winner: str | None = team_a
+        elif goals_b > goals_a:
+            winner = team_b
+        elif is_group:
+            winner = None
+        else:
+            winner = max(
+                (team_a, team_b), key=lambda c: fx.team_probs.get(c, 0.0)
+            )
+
+        went_to_pens = not is_group and (
+            goals_a == goals_b or fx.penalties_rate >= 0.5
+        )
+
+        predictions.append(
+            DataCampPrediction(
+                match_id=match_id,
+                team_a=team_a,
+                team_b=team_b,
+                goals_a=goals_a,
+                goals_b=goals_b,
+                winner=winner,
+                went_to_penalties=went_to_pens,
+                corners_total=TOURNAMENT_AVG_CORNERS,
+                yellow_cards_total=TOURNAMENT_AVG_YELLOW,
+                red_cards_total=TOURNAMENT_AVG_RED,
+            )
+        )
+    return predictions
 
 
 def to_datacamp_dataframe(predictions: list[DataCampPrediction]):
