@@ -30,16 +30,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-# ADK's Gemini client reads GOOGLE_API_KEY from the process environment;
-# pydantic-settings alone won't export it. No-op when .env is absent
-# (Cloud Run injects real env vars).
-load_dotenv()
-
 from .instrumentation import setup_observability
 from .settings import get_settings
 from .tools.health import health
 from .tools.monte_carlo import get_aggregate, get_priors_log
 from .tournament.state import load_default_state
+
+# ADK's Gemini client reads GOOGLE_API_KEY / GOOGLE_GENAI_USE_VERTEXAI
+# from the process environment; pydantic-settings alone won't export
+# them. Clients are built lazily per request, so loading after imports
+# is safe. No-op when .env is absent (Cloud Run injects real env vars).
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

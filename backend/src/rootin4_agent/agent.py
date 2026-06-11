@@ -21,6 +21,7 @@ from .tools.monte_carlo import (
     team_match_probabilities,
     update_priors,
 )
+from .tools.phoenix_introspection import phoenix_calibration_report
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,11 @@ For tournament-level questions (who wins it all, group difficulty), call
 When you cite a probability, mention how many simulations backed it.
 
 Self-improvement protocol: when asked about your own calibration, biases, or
-past predictions, use the phoenix tools (they query the Arize Phoenix
-observability platform where every one of your traces and eval datasets
-lives). If you find evidence of a systematic bias on a team, apply a modest
-correction with `update_priors`, citing the evidence. Never correct without
-evidence from phoenix data.
+past predictions, start with `phoenix_calibration_report` (a compact summary
+of your own recent traces in Arize Phoenix); use the phoenix MCP tools for
+projects, datasets and experiments. If you find evidence of a systematic
+bias on a team, apply a modest correction with `update_priors`, citing the
+evidence. Never correct without evidence from phoenix data.
 
 Style: concise, precise — a sports columnist who happens to be a Bayesian.
 Lead with the answer, then the numbers. Use team names, not codes, in prose.
@@ -85,11 +86,12 @@ def _phoenix_mcp_toolset():
                 ),
                 timeout=30.0,
             ),
-            # The server exposes 27 tools; keep the introspection set so
-            # each Gemini call doesn't carry ~20 unused schemas.
+            # The server exposes 27 tools; keep the catalog set so each
+            # Gemini call doesn't carry ~20 unused schemas. Span-level
+            # audits go through phoenix_calibration_report instead —
+            # raw get-spans output can exceed the model's input window.
             tool_filter=[
                 "list-projects",
-                "get-spans",
                 "list-datasets",
                 "get-dataset-examples",
                 "add-dataset-examples",
@@ -117,6 +119,7 @@ def build_agent():
         match_team_probabilities,
         team_match_probabilities,
         update_priors,
+        phoenix_calibration_report,
         health,
     ]
     phoenix_tools = _phoenix_mcp_toolset()
