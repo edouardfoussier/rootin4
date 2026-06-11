@@ -27,6 +27,12 @@ export function SiteHeader() {
           <HeaderTicketChip />
           <nav className="hidden items-center gap-6 sm:flex">
             <Link
+              href="/agent"
+              className="label-mono text-twilight transition hover:text-ink"
+            >
+              Agent
+            </Link>
+            <Link
               href="/schedule"
               className="label-mono text-ink-soft transition hover:text-ink"
             >

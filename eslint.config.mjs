@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Overriding the defaults drops the implicit node_modules ignore —
+    // restore it, and keep the Python backend out of JS linting.
+    "node_modules/**",
+    "backend/**",
   ]),
 ]);
 

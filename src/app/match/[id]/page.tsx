@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { VerdictCard, deriveVerdict } from "@/components/verdict-card";
+import { getLivePrediction } from "@/lib/live-data";
 import {
   formatProbability,
   getMatch,
-  getPrediction,
+  type MatchPrediction,
   type TeamProbability,
 } from "@/lib/stub-data";
 import {
@@ -39,7 +40,7 @@ export default async function MatchPage({
   const match = getMatch(matchId);
   if (!match) notFound();
 
-  const prediction = getPrediction(matchId);
+  const prediction = await getLivePrediction(matchId);
   const stadium = getStadium(match);
   const { a, b } = getMatchTeams(match);
 
@@ -128,11 +129,7 @@ export default async function MatchPage({
   );
 }
 
-function PredictionSections({
-  prediction,
-}: {
-  prediction: ReturnType<typeof getPrediction> & object;
-}) {
+function PredictionSections({ prediction }: { prediction: MatchPrediction }) {
   const ranked: TeamProbability[] = prediction.teamProbabilities.slice();
   const top = ranked.slice(0, 4);
   const tail = ranked.slice(4);
@@ -192,7 +189,7 @@ function PredictionSections({
         </header>
 
         <div className="grid grid-cols-1 gap-3">
-          {prediction.pairProbabilities.map((pair, idx) => (
+          {prediction.pairProbabilities.map((pair) => (
             <Card
               key={`${pair.teamA.code}-${pair.teamB.code}`}
               className="border-ink-line/70 bg-paper/40 backdrop-blur"
@@ -229,44 +226,52 @@ function PredictionSections({
         </div>
       </section>
 
-      <Separator className="my-12 bg-ink-line" />
+      {prediction.news.length > 0 && (
+        <>
+          <Separator className="my-12 bg-ink-line" />
 
-      {/* News timeline */}
-      <section className="flex flex-col gap-5">
-        <header className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-3xl font-bold text-ink sm:text-4xl">
-            What moved these probabilities
-          </h2>
-          <span className="label-mono text-ink-soft">Hand-curated until F3</span>
-        </header>
+          {/* News timeline */}
+          <section className="flex flex-col gap-5">
+            <header className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-3xl font-bold text-ink sm:text-4xl">
+                What moved these probabilities
+              </h2>
+              <span className="label-mono text-ink-soft">
+                Hand-curated until F3
+              </span>
+            </header>
 
-        <ol className="flex flex-col gap-4">
-          {prediction.news.map((event) => (
-            <li
-              key={event.id}
-              className="flex flex-col gap-1 border-l-2 border-horizon/60 pl-4"
-            >
-              <div className="flex items-baseline gap-3">
-                <span className="label-mono text-ink-soft">{event.date}</span>
-                <span
-                  className={`font-mono text-xs tabular-nums ${
-                    event.deltaPct >= 0 ? "text-horizon" : "text-twilight"
-                  }`}
+            <ol className="flex flex-col gap-4">
+              {prediction.news.map((event) => (
+                <li
+                  key={event.id}
+                  className="flex flex-col gap-1 border-l-2 border-horizon/60 pl-4"
                 >
-                  {event.deltaPct >= 0 ? "+" : ""}
-                  {event.deltaPct.toFixed(1)}pt
-                </span>
-              </div>
-              <p className="font-display text-lg font-bold text-ink">
-                {event.headline}
-              </p>
-              <p className="text-sm leading-relaxed text-ink-soft">
-                {event.detail}
-              </p>
-            </li>
-          ))}
-        </ol>
-      </section>
+                  <div className="flex items-baseline gap-3">
+                    <span className="label-mono text-ink-soft">
+                      {event.date}
+                    </span>
+                    <span
+                      className={`font-mono text-xs tabular-nums ${
+                        event.deltaPct >= 0 ? "text-horizon" : "text-twilight"
+                      }`}
+                    >
+                      {event.deltaPct >= 0 ? "+" : ""}
+                      {event.deltaPct.toFixed(1)}pt
+                    </span>
+                  </div>
+                  <p className="font-display text-lg font-bold text-ink">
+                    {event.headline}
+                  </p>
+                  <p className="text-sm leading-relaxed text-ink-soft">
+                    {event.detail}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </>
+      )}
 
       <Separator className="my-12 bg-ink-line" />
 

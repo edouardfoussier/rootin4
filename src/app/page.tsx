@@ -4,7 +4,7 @@ import { HomeTicketHero } from "@/components/home-ticket-hero";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { getPrediction } from "@/lib/stub-data";
+import { getLivePrediction } from "@/lib/live-data";
 import {
   HOST_LABEL,
   MATCHES,
@@ -15,6 +15,10 @@ import {
 
 /** Three fixtures across host countries to anchor the home page. */
 const TEASER_IDS = [87, 1, 73] as const;
+
+// Teaser probabilities come from the live agent backend — render per
+// request instead of freezing build-time numbers into the static shell.
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   const teasers = TEASER_IDS.map((id) => MATCHES.find((m) => m.id === id)).filter(
@@ -93,12 +97,12 @@ export default function Home() {
   );
 }
 
-function TeaserCard({ matchId }: { matchId: number }) {
+async function TeaserCard({ matchId }: { matchId: number }) {
   const match = MATCHES.find((m) => m.id === matchId);
   if (!match) return null;
   const stadium = getStadium(match);
   const { a, b } = getMatchTeams(match);
-  const prediction = getPrediction(matchId);
+  const prediction = await getLivePrediction(matchId);
   const leader = prediction?.teamProbabilities[0];
 
   return (

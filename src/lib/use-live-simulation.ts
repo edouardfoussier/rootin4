@@ -63,15 +63,22 @@ export function useLiveSimulation(opts: UseLiveSimulationOptions = {}) {
   const { initialTeamProbs = {}, driftAmplitude = 0.25, paused = false } = opts;
 
   const anchorsRef = useRef<Record<string, number>>({ ...initialTeamProbs });
-  // Keep anchors in sync if caller changes initial probs (e.g. matchId switch)
-  useEffect(() => {
-    anchorsRef.current = { ...initialTeamProbs };
-    setTeamProbs({ ...initialTeamProbs });
-  }, [JSON.stringify(initialTeamProbs)]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const [teamProbs, setTeamProbs] = useState<Record<string, number>>({
     ...initialTeamProbs,
   });
+
+  // Keep anchors in sync if caller changes initial probs (e.g. matchId
+  // switch). State resets during render (sanctioned prop-driven reset
+  // pattern); the ref syncs in an effect, where ref writes are allowed.
+  const initialKey = JSON.stringify(initialTeamProbs);
+  const [prevInitialKey, setPrevInitialKey] = useState(initialKey);
+  if (initialKey !== prevInitialKey) {
+    setPrevInitialKey(initialKey);
+    setTeamProbs({ ...initialTeamProbs });
+  }
+  useEffect(() => {
+    anchorsRef.current = { ...initialTeamProbs };
+  }, [initialKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [log, setLog] = useState<AgentLogEntry[]>(() =>
     SEED_LOG.slice(0, 4).map((entry, i) => ({
