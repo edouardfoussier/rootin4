@@ -8,7 +8,7 @@
 - **Project name**: Rootin4
 - **Tagline**: Know who's really playing at your seat — a self-improving
   Gemini agent for World Cup 2026 ticket-holders.
-- **Hosted project URL**: `<frontend Cloud Run URL>` (NOT the repo)
+- **Hosted project URL**: https://rootin4-web-282461311841.europe-west1.run.app (NOT the repo)
 - **Code repository**: https://github.com/edouardfoussier/rootin4 (public, MIT)
 - **Partner track**: **Arize**
 - **New or existing**: New — first commit and all work within the contest

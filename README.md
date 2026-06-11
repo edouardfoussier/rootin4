@@ -12,7 +12,7 @@ Every other World Cup tool predicts who wins.
 [![Observability](https://img.shields.io/badge/observability-Arize%20Phoenix-orange)](https://docs.arize.com/phoenix)
 [![Hackathon](https://img.shields.io/badge/Google%20Cloud%20Rapid%20Agent-Arize%20Track-red)](https://rapid-agent.devpost.com/)
 
-**Live demo:** _frontend URL_ · **Agent API:** _backend URL_
+**Live demo:** [rootin4-web…run.app](https://rootin4-web-282461311841.europe-west1.run.app) · **Agent API:** [rootin4-agent…run.app](https://rootin4-agent-282461311841.europe-west1.run.app/health)
 
 </div>
 
