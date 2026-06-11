@@ -1,6 +1,6 @@
 # Rootin4 frontend — Next.js standalone build for Cloud Run.
 FROM node:22-alpine AS base
-RUN corepack enable pnpm
+RUN corepack enable && corepack prepare pnpm@10.33.3 --activate
 WORKDIR /app
 
 FROM base AS deps

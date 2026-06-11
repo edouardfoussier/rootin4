@@ -121,9 +121,14 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
 @app.get("/healthz")
 def healthz() -> dict[str, Any]:
-    """Liveness probe — returns the same payload as the agent's `health` tool."""
+    """Liveness probe — same payload as the agent's `health` tool.
+
+    Exposed under both paths: Google's frontend intercepts `/healthz`
+    on run.app domains, so `/health` is the publicly reachable one.
+    """
     return health()
 
 

@@ -30,23 +30,60 @@ function toolLabel(name: string): string {
   return TOOL_LABEL[name] ?? `🔭 phoenix · ${name}`;
 }
 
-/** Minimal markdown: paragraphs + **bold**. The agent stays prose-only. */
+/** Minimal markdown: paragraphs, bullet lists, **bold**. */
+function Bold({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*]+\*\*)/g).map((chunk, j) =>
+        chunk.startsWith("**") && chunk.endsWith("**") ? (
+          <strong key={j} className="font-semibold">
+            {chunk.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={j}>{chunk}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function AgentProse({ text }: { text: string }) {
+  const blocks = text.split(/\n{2,}/);
   return (
     <div className="flex flex-col gap-3">
-      {text.split(/\n{2,}/).map((para, i) => (
-        <p key={i} className="text-[0.95rem] leading-relaxed text-ink">
-          {para.split(/(\*\*[^*]+\*\*)/g).map((chunk, j) =>
-            chunk.startsWith("**") && chunk.endsWith("**") ? (
-              <strong key={j} className="font-semibold">
-                {chunk.slice(2, -2)}
-              </strong>
-            ) : (
-              <span key={j}>{chunk}</span>
-            )
-          )}
-        </p>
-      ))}
+      {blocks.map((block, i) => {
+        const lines = block.split("\n");
+        const isList = lines.every((l) => /^\s*([*•-]|\d+\.)\s+/.test(l.trim()) || !l.trim());
+        if (isList && lines.some((l) => l.trim())) {
+          return (
+            <ul key={i} className="flex flex-col gap-1.5 pl-1">
+              {lines
+                .filter((l) => l.trim())
+                .map((l, j) => (
+                  <li
+                    key={j}
+                    className="flex gap-2 text-[0.95rem] leading-relaxed text-ink"
+                  >
+                    <span aria-hidden className="text-twilight">
+                      ·
+                    </span>
+                    <span>
+                      <Bold text={l.trim().replace(/^([*•-]|\d+\.)\s+/, "")} />
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          );
+        }
+        return (
+          <p
+            key={i}
+            className="whitespace-pre-line text-[0.95rem] leading-relaxed text-ink"
+          >
+            <Bold text={block} />
+          </p>
+        );
+      })}
     </div>
   );
 }
